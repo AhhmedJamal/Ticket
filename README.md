@@ -1,58 +1,130 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
-
 <p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+  <span style="font-size: 64px;">📝</span>
+  <h1 align="center">Notion Clone — نوشن المصغر</h1>
+  <p align="center">
+    تطبيق متكامل لإدارة مساحات العمل والصفحات والملاحظات والمهام بنظام <strong>Monolith</strong> مبني بإطار عمل <strong>Laravel</strong>، ومدعوم بـ <strong>Blade</strong> و <strong>Tailwind CSS</strong> و <strong>Alpine.js</strong> بدون أي إطارات عمل SPA معقدة.
+  </p>
 </p>
 
-## About Laravel
+<p align="center">
+  <img src="https://img.shields.io/badge/Laravel-11%2F12-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel" />
+  <img src="https://img.shields.io/badge/PHP-8.4-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.4" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/Alpine.js-8BC0D0?style=for-the-badge&logo=alpine.js&logoColor=white" alt="Alpine.js" />
+</p>
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## ✨ المميزات الرئيسية (Features)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### 1. 🏢 مساحات العمل والمستخدمين (Workspaces & Users)
+- تسجيل حساب، تسجيل الدخول، وحفظ الجلسات.
+- إنشاء مساحات عمل (Workspaces) متعددة مع توليد `slug` فريد لكل مساحة.
+- لوحة تحكم ترحيبية وإحصائيات سريعة بعدد الصفحات وتاريخ الإنشاء.
 
-## Learning Laravel
+### 2. 🌲 شجرة صفحات هرمية لا نهائية (Infinite Nested Pages)
+- شجرة صفحات متداخلة بدون حدود عبر تقنية **Self-referencing Foreign Keys** (`parent_id`).
+- قائمة جانبية (Sidebar) ذكية تتيح:
+  - فتح وطي الفروع عبر أسهم الـ (Chevron).
+  - زر إضافة صفحة فرعية فورية `(+)` بجانب كل صفحة في أي مستوى.
+  - إخفاء وإظهار السايدبار بالكامل بضغطة زر.
+  - زر حذف الصفحة مع حذف كل صفحاتها التابعة تلقائياً (`cascadeOnDelete`).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### 3. 🧩 محرر بلوكات متقدم ومرن (Block-based Editor)
+يدعم محرر الصفحة تشكيلة واسعة من البلوكات المستوحاة من Notion مباشرة:
+- **¶ نصوص عادية (Paragraph):** متعددة الأسطر مع تمدد تلقائي وسلاسة في الكتابة.
+- **عناوين متعددة المستويات:** `H1` عنوان رئيسي، `H2` عنوان متوسط، و `H3` عنوان فرعي.
+- **💻 كتل برمجية (Code Snippets):** شاشة كود داكنة (Dark Code Editor)، خط Monospace، وزر لنسخ الكود بضغطة واحدة.
+- **💡 صناديق ملاحظات وتنبيهات (Callouts):** خلفية مميزة وأيقونة بارزة للملاحظات الهامة.
+- **❝ اقتباسات أنيقة (Quotes):** خط عمودي أنيق مع خط مائل.
+- **☑ قوائم مهام تفاعلية (To-do Lists):** مربعات اختيار (Checkboxes) تفاعلية تشطب النص عند الإنجاز وتُحفظ لحظياً في قاعدة البيانات.
+- **• قوائم نقطية ومرقمة (Bullet & Numbered Lists)**.
+- **― فواصل أفقية (Dividers)** لتقسيم محتوى الصفحة.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 4. ⚡ التفاعل الفوري (Inline Editing & AJAX)
+- **العنوان التفاعلي (Inline Editable Title):** تعديل العنوان في مكانه دون إعادة تحميل الصفحة (Auto-save on blur).
+- **أيقونة الصفحة الفورية (Emoji Picker):** تغيير أيقونة الصفحة بالنقر المباشر وحفظ التغيير فوراً.
+- **إعادة الترتيب بالسحب والإفلات (Drag & Drop):** إعادة ترتيب البلوكات بسهولة عبر SortableJS مع حفظ الترتيب الجديد في الباك إند.
+- **نافذة البحث السريع (Command Palette `Ctrl + K`):** بحث فوري في جميع صفحات مساحة العمل والتنقل بينها.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+---
 
-## Agentic Development
+## 🛠️ حزمة التقنيات (Tech Stack)
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+| المجال | التقنية المستخدمة |
+|---|---|
+| **الباك إند** | Laravel 11/12 (PHP 8.4) |
+| **قواعد البيانات** | SQLite / MySQL مع دعم JSON Fields |
+| **المصادقة** | Laravel Session Auth + Laravel Sanctum |
+| **محرك القوالب** | Laravel Blade Components & Layouts |
+| **التصميم** | Tailwind CSS (CDN) مع ألوان نوشن الرسمية |
+| **التفاعل بالمتصفح** | Alpine.js (CDN) |
+| **السحب والإفلات** | SortableJS |
 
-```bash
-composer require laravel/boost --dev
+---
 
-php artisan boost:install
-```
+## 🚀 متطلبات التشغيل والتثبيت (Getting Started)
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### المتطلبات الأساسية
+- **PHP >= 8.2** (يُفضل **PHP 8.4**)
+- **Composer**
+- **Node.js & NPM** (اختياري، الاعتماد الأساسي على الـ CDN)
 
-## Contributing
+### خطوات التثبيت:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+1. **استنساخ المستودع (Clone repository):**
+   ```bash
+   git clone https://github.com/your-username/notion-clone.git
+   cd notion-clone
+   ```
 
-## Code of Conduct
+2. **تثبيت حزم الـ PHP:**
+   ```bash
+   composer install
+   ```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+3. **إعداد ملف البيئة (`.env`):**
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
 
-## Security Vulnerabilities
+4. **تشغيل الـ Migrations لقاعدة البيانات:**
+   ```bash
+   php artisan migrate
+   ```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+5. **بدء السيرفر المحلي:**
+   ```bash
+   php artisan serve
+   ```
+   افتح المتصفح وتوجه إلى: `http://localhost:8000`
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## 🗄️ هيكل قاعدة البيانات (Database Schema)
+
+- **`users`:** جدول المستخدمين.
+- **`workspaces`:** مساحات العمل التي يملكها المستخدمون مع حقل `slug`.
+- **`workspace_user`:** جدول الربط بين مساحات العمل والأعضاء مع تحديد الرتبة (`role`).
+- **`pages`:** الصفحات التابعة لمساحة العمل، تحتوي على:
+  - `parent_id`: يشير لنفس الجدول لدعم الصفحات المتداخلة (`Self-referencing`).
+  - `title`: عنوان الصفحة.
+  - `icon`: الرمز التعبيري (Emoji).
+  - `cover_image`: صورة الغلاف العلوية.
+- **`blocks`:** البلوكات المكونة للصفحة، تحتوي على:
+  - `type`: نوع البلوك (`paragraph`, `heading_1`, `code`, `todo`, ... إلخ).
+  - `content`: حقل JSON مرن يخزن النصوص وحالة التحديد وغيرها.
+  - `position`: ترتيب البلوك داخل الصفحة.
+
+---
+
+## 📚 التوثيق المعماري للمشروع
+
+للاطلاع على التوثيق التفصيلي الشامل لقواعد الكود، القرارات الهندسية، والمخططات التفصيلية، راجع ملف:
+👉 **[`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md)**
+
+---
+
+## 📄 الترخيص (License)
+هذا المشروع مفتوح المصدر ومتاح تحت ترخيص [MIT License](LICENSE).
