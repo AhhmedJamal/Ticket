@@ -149,7 +149,7 @@
     </div>
 
     {{-- =================== المحتوى الرئيسي =================== --}}
-    <div class="max-w-[740px] mx-auto px-4 sm:px-12 py-4 space-y-4">
+    <div class="max-w-4xl mx-auto px-4 sm:px-12 pt-4 pb-28 space-y-4">
 
         {{-- الصفحات الفرعية --}}
         @if($page->children->count() > 0)
@@ -489,30 +489,49 @@
                     </div>
 
                     {{-- عرض 2: Kanban Board View --}}
-                    <div x-show="db.view === 'board'" class="p-4 overflow-x-auto">
+                    <div x-show="db.view === 'board'" class="p-4 sm:p-5 overflow-x-auto">
                         @php /* Grouped dynamically in Alpine by first select property */ @endphp
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <template x-for="col in getBoardColumns(db)" :key="col">
-                                <div class="rounded-lg bg-white/60 dark:bg-[#191919] border border-notion-border dark:border-[#2E2E2E] p-3 space-y-2">
+                                <div
+                                    @dragover.prevent="if (draggingDbId === db.id) dragOverCol = col"
+                                    @dragleave="if (dragOverCol === col && !$el.contains($event.relatedTarget)) dragOverCol = null"
+                                    @drop.prevent="moveBoardRow(db, col)"
+                                    :class="dragOverCol === col && draggingDbId === db.id ? 'ring-2 ring-notion-accent/70 bg-notion-hover/50 dark:bg-[#242424]' : 'bg-white/60 dark:bg-[#191919]'"
+                                    class="rounded-xl border border-notion-border dark:border-[#2E2E2E] p-4 space-y-3 transition-all min-h-[180px]"
+                                >
                                     <div class="flex items-center justify-between text-xs font-semibold text-notion-text dark:text-[#E3E3E0]">
                                         <span x-text="col"></span>
-                                        <span class="text-[11px] text-notion-muted dark:text-[#9B9A97]" x-text="getBoardRows(db, col).length"></span>
+                                        <span class="text-[11px] px-2 py-0.5 rounded-full bg-notion-sidebar dark:bg-[#252525] text-notion-muted dark:text-[#9B9A97]" x-text="getBoardRows(db, col).length"></span>
                                     </div>
-                                    <div class="space-y-2">
+                                    <div class="space-y-3">
                                         <template x-for="row in getBoardRows(db, col)" :key="row.id">
-                                            <div class="p-2.5 rounded-lg bg-notion-sidebar dark:bg-[#252525] border border-notion-border dark:border-[#333333] space-y-1.5">
-                                                <div class="text-xs font-medium text-notion-text dark:text-[#E3E3E0]" x-text="row.values[db.properties[0]?.name] || 'بدون عنوان'"></div>
-                                                <div class="flex items-center justify-between text-[10px] text-notion-muted dark:text-[#9B9A97]">
-                                                    <span x-text="row.values['التاريخ'] || ''"></span>
-                                                    <select
-                                                        :value="row.values[getStatusPropName(db)] || ''"
-                                                        @change="row.values[getStatusPropName(db)] = $event.target.value; updateDatabaseRow(row)"
-                                                        class="bg-transparent text-[10px] border border-notion-border dark:border-[#3A3A3A] rounded px-1 py-0.5 dark:bg-[#202020]"
-                                                    >
-                                                        <template x-for="opt in getBoardColumns(db)" :key="opt">
-                                                            <option :value="opt" x-text="opt"></option>
-                                                        </template>
-                                                    </select>
+                                            <div
+                                                draggable="true"
+                                                @dragstart="startBoardDrag($event, db, row)"
+                                                @dragend="draggingRowId = null; draggingDbId = null; dragOverCol = null"
+                                                :class="draggingRowId === row.id ? 'opacity-40 scale-[0.98]' : ''"
+                                                class="p-3.5 sm:p-4 rounded-xl bg-notion-sidebar dark:bg-[#252525] border border-notion-border dark:border-[#333333] space-y-3 cursor-grab active:cursor-grabbing transition-all shadow-sm"
+                                            >
+                                                <div class="flex items-start gap-2">
+                                                    <textarea
+                                                        rows="2"
+                                                        :value="row.values[db.properties[0]?.name] || ''"
+                                                        x-init="$nextTick(() => { $el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'; })"
+                                                        @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"
+                                                        @blur="row.values[db.properties[0]?.name] = $event.target.value; updateDatabaseRow(row)"
+                                                        placeholder="بدون عنوان..."
+                                                        class="flex-1 min-w-0 bg-transparent text-sm font-medium leading-relaxed text-notion-text dark:text-[#E3E3E0] placeholder:text-notion-muted/60 focus:outline-none focus:ring-1 focus:ring-notion-accent rounded-lg px-1.5 py-1 resize-none overflow-hidden"
+                                                    ></textarea>
+                                                    <button type="button" @click="deleteDatabaseRow(db, row)" class="text-xs text-notion-muted hover:text-red-500 shrink-0 p-1">✕</button>
+                                                </div>
+                                                <div class="flex items-center justify-between gap-2 pt-2 border-t border-notion-border/60 dark:border-[#333333] text-[11px] text-notion-muted dark:text-[#9B9A97]">
+                                                    <input
+                                                        type="date"
+                                                        :value="row.values['التاريخ'] || ''"
+                                                        @change="row.values['التاريخ'] = $event.target.value; updateDatabaseRow(row)"
+                                                        class="bg-transparent text-[11px] text-notion-muted dark:text-[#9B9A97] focus:outline-none min-w-0"
+                                                    />
                                                 </div>
                                             </div>
                                         </template>
@@ -525,19 +544,60 @@
                     {{-- عرض 3: Gallery View (2-Column Card Grid) --}}
                     <div x-show="db.view === 'gallery'" class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <template x-for="row in db.rows" :key="row.id">
-                            <div class="p-3.5 rounded-xl bg-white dark:bg-[#191919] border border-notion-border dark:border-[#2E2E2E] hover:border-notion-muted/50 transition-colors space-y-2">
+                            <div class="p-3.5 rounded-xl bg-white dark:bg-[#191919] border border-notion-border dark:border-[#2E2E2E] hover:border-notion-muted/50 transition-colors space-y-2.5">
                                 <div class="flex items-center justify-between gap-2">
-                                    <div class="text-sm font-semibold text-notion-text dark:text-[#E3E3E0] truncate" x-text="row.values[db.properties[0]?.name] || 'بدون عنوان'"></div>
-                                    <button type="button" @click="deleteDatabaseRow(db, row)" class="text-xs text-notion-muted hover:text-red-500">✕</button>
+                                    <input
+                                        type="text"
+                                        :value="row.values[db.properties[0]?.name] || ''"
+                                        @blur="row.values[db.properties[0]?.name] = $event.target.value; updateDatabaseRow(row)"
+                                        @keydown.enter="$event.target.blur()"
+                                        placeholder="بدون عنوان"
+                                        class="flex-1 min-w-0 bg-transparent text-sm font-semibold text-notion-text dark:text-[#E3E3E0] placeholder:text-notion-muted/60 focus:outline-none focus:ring-1 focus:ring-notion-accent rounded px-1 py-0.5"
+                                    />
+                                    <button type="button" @click="deleteDatabaseRow(db, row)" class="text-xs text-notion-muted hover:text-red-500 shrink-0">✕</button>
                                 </div>
-                                <div class="flex flex-wrap gap-1.5 text-[11px]">
+                                <div class="space-y-1.5 text-xs">
                                     <template x-for="prop in db.properties.slice(1)" :key="prop.name">
-                                        <span x-show="row.values[prop.name]" class="px-2 py-0.5 rounded-full bg-notion-sidebar dark:bg-[#252525] border border-notion-border dark:border-[#333333] text-notion-muted dark:text-[#9B9A97]">
-                                            <span x-text="prop.name + ': '"></span>
-                                            <span class="text-notion-text dark:text-[#E3E3E0]" x-text="row.values[prop.name]"></span>
-                                        </span>
+                                        <div class="flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-notion-sidebar dark:bg-[#252525] border border-notion-border dark:border-[#333333]">
+                                            <span class="text-[11px] text-notion-muted dark:text-[#9B9A97] shrink-0" x-text="prop.name"></span>
+                                            <template x-if="prop.type === 'select'">
+                                                <select
+                                                    :value="row.values[prop.name] || ''"
+                                                    @change="row.values[prop.name] = $event.target.value; updateDatabaseRow(row)"
+                                                    class="bg-transparent text-xs text-notion-text dark:text-[#E3E3E0] focus:outline-none cursor-pointer text-left"
+                                                >
+                                                    <option value="" class="dark:bg-[#252525]">—</option>
+                                                    <template x-for="opt in (prop.options || [])" :key="opt">
+                                                        <option :value="opt" x-text="opt" class="dark:bg-[#252525]"></option>
+                                                    </template>
+                                                </select>
+                                            </template>
+                                            <template x-if="prop.type === 'date'">
+                                                <input
+                                                    type="date"
+                                                    :value="row.values[prop.name] || ''"
+                                                    @change="row.values[prop.name] = $event.target.value; updateDatabaseRow(row)"
+                                                    class="bg-transparent text-xs text-notion-text dark:text-[#E3E3E0] focus:outline-none"
+                                                />
+                                            </template>
+                                            <template x-if="prop.type !== 'select' && prop.type !== 'date'">
+                                                <input
+                                                    type="text"
+                                                    :value="row.values[prop.name] || ''"
+                                                    @blur="row.values[prop.name] = $event.target.value; updateDatabaseRow(row)"
+                                                    @keydown.enter="$event.target.blur()"
+                                                    placeholder="اكتب..."
+                                                    class="flex-1 min-w-0 bg-transparent text-xs text-notion-text dark:text-[#E3E3E0] placeholder:text-notion-muted/50 focus:outline-none text-left"
+                                                />
+                                            </template>
+                                        </div>
                                     </template>
                                 </div>
+                            </div>
+                        </template>
+                        <template x-if="db.rows.length === 0">
+                            <div class="sm:col-span-2 px-4 py-6 text-center text-xs text-notion-muted dark:text-[#9B9A97]">
+                                لا توجد سجلات بعد. اضغط "+ سجل" لإضافة أول عنصر.
                             </div>
                         </template>
                     </div>
@@ -564,74 +624,6 @@
             }"
             class="pt-1 space-y-2 relative"
         >
-            {{-- قائمة أوامر السلاش (/) --}}
-            <div
-                x-show="slashOpen"
-                x-cloak
-                @click.outside="slashOpen = false"
-                class="absolute bottom-full mb-2 right-0 w-72 max-h-80 overflow-y-auto bg-white dark:bg-[#252525] border border-notion-border dark:border-[#333333] rounded-xl shadow-2xl p-2 z-30 space-y-2"
-            >
-                <div class="px-2 py-1 text-[11px] font-semibold text-notion-muted dark:text-[#9B9A97]">نصوص وعناوين</div>
-                <div class="space-y-0.5">
-                    <button type="button" @click="selectBlock('paragraph', '¶ نص عادي')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center font-bold">¶</span>
-                        <div><div class="font-medium">نص عادي</div><div class="text-[10px] text-notion-muted">فقرة نصية بسيطة</div></div>
-                    </button>
-                    <button type="button" @click="selectBlock('heading_1', 'H1 عنوان كبير')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center font-bold">H1</span>
-                        <div><div class="font-medium">عنوان رئيسي</div><div class="text-[10px] text-notion-muted">عنوان قسم كبير</div></div>
-                    </button>
-                    <button type="button" @click="selectBlock('heading_2', 'H2 عنوان متوسط')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center font-bold">H2</span>
-                        <div><div class="font-medium">عنوان متوسط</div><div class="text-[10px] text-notion-muted">عنوان فرعي متوسط</div></div>
-                    </button>
-                    <button type="button" @click="selectBlock('heading_3', 'H3 عنوان صغير')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center font-bold">H3</span>
-                        <div><div class="font-medium">عنوان صغير</div><div class="text-[10px] text-notion-muted">عنوان فرعي صغير</div></div>
-                    </button>
-                </div>
-
-                <div class="border-t border-notion-border dark:border-[#333333] pt-1.5 px-2 text-[11px] font-semibold text-notion-muted dark:text-[#9B9A97]">قوائم وتنظيم</div>
-                <div class="space-y-0.5">
-                    <button type="button" @click="selectBlock('todo', '☑ قائمة مهام')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center">☑</span>
-                        <div><div class="font-medium">قائمة مهام</div><div class="text-[10px] text-notion-muted">مربع اختيار قابل للتحديد</div></div>
-                    </button>
-                    <button type="button" @click="selectBlock('bulleted_list', '• قائمة نقطية')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center">•</span>
-                        <div><div class="font-medium">قائمة نقطية</div><div class="text-[10px] text-notion-muted">نقاط مرتبة</div></div>
-                    </button>
-                    <button type="button" @click="selectBlock('numbered_list', '1. قائمة مرقمة')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center font-mono">1.</span>
-                        <div><div class="font-medium">قائمة مرقمة</div><div class="text-[10px] text-notion-muted">تعداد رقمي</div></div>
-                    </button>
-                    <button type="button" @click="selectBlock('toggle', '▶ قائمة مطوية')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center">▶</span>
-                        <div><div class="font-medium">Toggle قابل للطي</div><div class="text-[10px] text-notion-muted">إظهار وإخفاء المحتوى</div></div>
-                    </button>
-                </div>
-
-                <div class="border-t border-notion-border dark:border-[#333333] pt-1.5 px-2 text-[11px] font-semibold text-notion-muted dark:text-[#9B9A97]">وسائط وكود</div>
-                <div class="space-y-0.5">
-                    <button type="button" @click="selectBlock('callout', '💡 تنبيه')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center">💡</span>
-                        <div><div class="font-medium">تنبيه (Callout)</div><div class="text-[10px] text-notion-muted">إبراز ملاحظة مهمة</div></div>
-                    </button>
-                    <button type="button" @click="selectBlock('quote', '❝ اقتباس')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center">❝</span>
-                        <div><div class="font-medium">اقتباس</div><div class="text-[10px] text-notion-muted">نص مقتبس</div></div>
-                    </button>
-                    <button type="button" @click="selectBlock('code', '💻 كود برمجي')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center">💻</span>
-                        <div><div class="font-medium">كود برمجي</div><div class="text-[10px] text-notion-muted">صندوق كود مع زر نسخ</div></div>
-                    </button>
-                    <button type="button" @click="selectBlock('divider', '― فاصل')" class="w-full text-right flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg hover:bg-notion-hover dark:hover:bg-[#2C2C2C] text-xs text-notion-text dark:text-[#E3E3E0]">
-                        <span class="w-6 h-6 rounded bg-notion-sidebar dark:bg-[#191919] flex items-center justify-center">―</span>
-                        <div><div class="font-medium">خط فاصل</div><div class="text-[10px] text-notion-muted">فصل الأقسام</div></div>
-                    </button>
-                </div>
-            </div>
-
             <form x-ref="addBlockForm" id="add-block-form" action="{{ route('blocks.store', $page) }}" method="POST"
                   class="group/addline flex items-center gap-2 py-1 -mx-2 px-2 rounded hover:bg-notion-hover/30 dark:hover:bg-[#232323]/60 transition-colors">
                 @csrf
@@ -657,18 +649,122 @@
                 />
             </form>
 
-            {{-- إجراءات سريعة هادئة --}}
-            <div class="flex items-center gap-4 pt-2 opacity-60 hover:opacity-100 transition-opacity">
-                <button type="button" @click="createDatabase()" class="text-xs text-notion-muted dark:text-[#7F7F7F] hover:text-notion-text dark:hover:text-[#E3E3E0] transition-colors">
-                    + قاعدة بيانات
-                </button>
-                <form action="{{ route('pages.store', $workspace) }}" method="POST">
-                    @csrf
-                    <input type="hidden" name="parent_id" value="{{ $page->id }}">
-                    <button type="submit" class="text-xs text-notion-muted dark:text-[#7F7F7F] hover:text-notion-text dark:hover:text-[#E3E3E0] transition-colors">
-                        + صفحة فرعية
-                    </button>
-                </form>
+            {{-- قائمة أوامر السلاش (/) --}}
+            <div
+                x-show="slashOpen"
+                x-cloak
+                @click.outside="slashOpen = false"
+                @keydown.escape.window="slashOpen = false"
+                x-transition:enter="transition ease-out duration-150"
+                x-transition:enter-start="opacity-0 -translate-y-1"
+                x-transition:enter-end="opacity-100 translate-y-0"
+                class="mt-2 mb-6 w-full bg-white dark:bg-[#222222] border border-notion-border dark:border-[#343434] rounded-2xl shadow-xl p-5 sm:p-6 space-y-4"
+            >
+                <div class="flex items-center justify-between px-1 pb-2.5 border-b border-notion-border dark:border-[#303030]">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-notion-text dark:text-[#E3E3E0]">إدراج بلوك جديد</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] text-notion-muted">/</span>
+                    </div>
+                    <button type="button" @click="slashOpen = false" class="text-[11px] text-notion-muted hover:text-notion-text dark:hover:text-[#E3E3E0] px-1.5 py-0.5 rounded hover:bg-notion-hover dark:hover:bg-[#2E2E2E]">Esc</button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <div class="px-1.5 pb-1.5 text-[11px] font-semibold text-notion-muted dark:text-[#9B9A97]">نصوص وعناوين</div>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button type="button" @click="selectBlock('paragraph', '¶ نص عادي')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center font-bold text-xs shrink-0">¶</span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">نص عادي</div><div class="text-[10px] text-notion-muted truncate">فقرة بسيطة</div></div>
+                            </button>
+                            <button type="button" @click="selectBlock('heading_1', 'H1 عنوان كبير')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center font-bold text-xs shrink-0">H1</span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">عنوان رئيسي</div><div class="text-[10px] text-notion-muted truncate">قسم كبير</div></div>
+                            </button>
+                            <button type="button" @click="selectBlock('heading_2', 'H2 عنوان متوسط')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center font-bold text-xs shrink-0">H2</span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">عنوان متوسط</div><div class="text-[10px] text-notion-muted truncate">فرعي متوسط</div></div>
+                            </button>
+                            <button type="button" @click="selectBlock('heading_3', 'H3 عنوان صغير')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center font-bold text-xs shrink-0">H3</span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">عنوان صغير</div><div class="text-[10px] text-notion-muted truncate">فرعي صغير</div></div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="px-1.5 pb-1.5 text-[11px] font-semibold text-notion-muted dark:text-[#9B9A97]">قوائم وتنظيم</div>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button type="button" @click="selectBlock('todo', '☑ قائمة مهام')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center text-sm shrink-0">☑</span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">قائمة مهام</div><div class="text-[10px] text-notion-muted truncate">مربع اختيار</div></div>
+                            </button>
+                            <button type="button" @click="selectBlock('bulleted_list', '• قائمة نقطية')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center text-base shrink-0">•</span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">قائمة نقطية</div><div class="text-[10px] text-notion-muted truncate">نقاط مرتبة</div></div>
+                            </button>
+                            <button type="button" @click="selectBlock('numbered_list', '1. قائمة مرقمة')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center font-mono text-xs shrink-0">1.</span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">قائمة مرقمة</div><div class="text-[10px] text-notion-muted truncate">تعداد رقمي</div></div>
+                            </button>
+                            <button type="button" @click="selectBlock('toggle', '▶ قائمة مطوية')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center text-xs shrink-0">▶</span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">قائمة مطوية</div><div class="text-[10px] text-notion-muted truncate">إظهار وإخفاء</div></div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-notion-border dark:border-[#303030] pt-3">
+                        <div class="px-1.5 pb-1.5 text-[11px] font-semibold text-notion-muted dark:text-[#9B9A97]">وسائط وكود</div>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button type="button" @click="selectBlock('callout', '💡 تنبيه')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center shrink-0">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                </span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">تنبيه</div><div class="text-[10px] text-notion-muted truncate">ملاحظة مهمة</div></div>
+                            </button>
+                            <button type="button" @click="selectBlock('quote', '❝ اقتباس')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center text-sm shrink-0">❝</span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">اقتباس</div><div class="text-[10px] text-notion-muted truncate">نص مقتبس</div></div>
+                            </button>
+                            <button type="button" @click="selectBlock('code', '💻 كود برمجي')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center shrink-0">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                                </span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">كود برمجي</div><div class="text-[10px] text-notion-muted truncate">صندوق كود</div></div>
+                            </button>
+                            <button type="button" @click="selectBlock('divider', '― فاصل')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center text-sm shrink-0">―</span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">خط فاصل</div><div class="text-[10px] text-notion-muted truncate">فصل الأقسام</div></div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-notion-border dark:border-[#303030] pt-3">
+                        <div class="px-1.5 pb-1.5 text-[11px] font-semibold text-notion-muted dark:text-[#9B9A97]">صفحات وبيانات</div>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button
+                                type="button"
+                                @click="slashOpen = false; if (blockText.trim() === '/') blockText = ''; createDatabase()"
+                                class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]"
+                            >
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center shrink-0">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+                                </span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">قاعدة بيانات</div><div class="text-[10px] text-notion-muted truncate">جدول مدمج</div></div>
+                            </button>
+                            <form action="{{ route('pages.store', $workspace) }}" method="POST" class="contents">
+                                @csrf
+                                <input type="hidden" name="parent_id" value="{{ $page->id }}">
+                                <button type="submit" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                    <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center shrink-0">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    </span>
+                                    <div class="min-w-0"><div class="text-xs font-medium truncate">صفحة فرعية</div><div class="text-[10px] text-notion-muted truncate">صفحة بالداخل</div></div>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -815,6 +911,9 @@ function pageEditor() {
         pageId: {{ $page->id }},
         workspaceId: {{ $workspace->id }},
         databases: {{ \Illuminate\Support\Js::from($databasesData) }},
+        draggingRowId: null,
+        draggingDbId: null,
+        dragOverCol: null,
 
         async createDatabase() {
             const res = await fetch('{{ route('databases.store', $page) }}', {
@@ -923,6 +1022,35 @@ function pageEditor() {
                 const val = r.values[statusKey];
                 return val ? val === col : col === cols[0];
             });
+        },
+
+        startBoardDrag(e, db, row) {
+            if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+                e.preventDefault();
+                return;
+            }
+            this.draggingRowId = row.id;
+            this.draggingDbId = db.id;
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(row.id));
+            }
+        },
+
+        async moveBoardRow(db, targetCol) {
+            this.dragOverCol = null;
+            if (!this.draggingRowId || this.draggingDbId !== db.id) return;
+            const row = db.rows.find(r => r.id === this.draggingRowId);
+            this.draggingRowId = null;
+            this.draggingDbId = null;
+            if (!row) return;
+
+            const statusKey = this.getStatusPropName(db);
+            const currentVal = row.values[statusKey] || this.getBoardColumns(db)[0];
+            if (currentVal === targetCol) return;
+
+            row.values[statusKey] = targetCol;
+            await this.updateDatabaseRow(row);
         },
 
         async updatePage() {

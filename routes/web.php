@@ -50,6 +50,7 @@ Route::middleware(['auth'])->group(function () {
     // مساحات العمل
     Route::post('/workspaces', [WorkspaceController::class, 'store'])->name('workspaces.store');
     Route::get('/workspaces/{workspace}', [WorkspaceController::class, 'show'])->name('workspaces.show');
+    Route::put('/workspaces/{workspace}', [WorkspaceController::class, 'update'])->name('workspaces.update');
 
     // إعدادات وأعضاء مساحة العمل
     Route::get('/workspaces/{workspace}/settings', [WorkspaceMemberController::class, 'index'])->name('workspaces.settings');

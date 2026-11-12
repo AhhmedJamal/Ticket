@@ -28,11 +28,15 @@
     @endif
 
     {{-- =================== معلومات المساحة =================== --}}
+    @php
+        $canEditWorkspace = auth()->id() === $workspace->user_id
+            || $workspace->members->contains(fn ($m) => $m->id === auth()->id() && $m->pivot->role === 'admin');
+    @endphp
     <section>
         <h2 class="text-xs font-semibold text-notion-muted dark:text-[#9B9A97] uppercase tracking-wider mb-3">المعلومات الأساسية</h2>
-        <div class="bg-notion-sidebar dark:bg-[#202020] border border-notion-border dark:border-[#2E2E2E] rounded-xl p-4 space-y-3">
+        <div class="bg-notion-sidebar dark:bg-[#202020] border border-notion-border dark:border-[#2E2E2E] rounded-xl p-4 space-y-4">
             <div class="flex items-center gap-3">
-                <span class="w-10 h-10 rounded-lg bg-notion-text dark:bg-[#3A3A3A] text-white flex items-center justify-center font-bold text-lg">
+                <span class="w-10 h-10 rounded-lg bg-notion-text dark:bg-[#3A3A3A] text-white flex items-center justify-center font-bold text-lg shrink-0">
                     {{ mb_substr($workspace->name, 0, 1) }}
                 </span>
                 <div>
@@ -40,6 +44,24 @@
                     <div class="text-xs text-notion-muted dark:text-[#9B9A97]">المالك: {{ $workspace->owner->name }}</div>
                 </div>
             </div>
+
+            @if($canEditWorkspace)
+                <form action="{{ route('workspaces.update', $workspace) }}" method="POST" class="flex flex-col sm:flex-row gap-3 pt-3 border-t border-notion-border dark:border-[#2E2E2E]">
+                    @csrf
+                    @method('PUT')
+                    <input
+                        type="text"
+                        name="name"
+                        value="{{ old('name', $workspace->name) }}"
+                        placeholder="اسم مساحة العمل"
+                        required
+                        class="flex-1 text-sm bg-white dark:bg-[#191919] border border-notion-border dark:border-[#2E2E2E] rounded-lg px-3 py-2 focus:outline-none focus:border-notion-accent text-notion-text dark:text-[#E3E3E0] placeholder-notion-muted"
+                    />
+                    <button type="submit" class="px-4 py-2 bg-notion-text dark:bg-[#2EAADC] text-white rounded-lg text-sm hover:bg-black dark:hover:bg-[#2596C4] transition-colors whitespace-nowrap">
+                        حفظ التعديلات
+                    </button>
+                </form>
+            @endif
         </div>
     </section>
 

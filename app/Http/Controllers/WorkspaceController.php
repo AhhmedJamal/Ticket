@@ -85,4 +85,36 @@ class WorkspaceController extends Controller
 
         return view('workspaces.show', compact('workspace', 'allWorkspaces'));
     }
+
+    /**
+     * تحديث بيانات مساحة العمل
+     */
+    public function update(Request $request, Workspace $workspace)
+    {
+        $user = $request->user();
+
+        $isAdmin = $workspace->user_id === $user->id
+            || $workspace->members()->where('user_id', $user->id)->wherePivot('role', 'admin')->exists();
+
+        if (! $isAdmin) {
+            abort(403, 'غير مخول بتعديل مساحة العمل هذه.');
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $workspace->update([
+            'name' => $validated['name'],
+        ]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Workspace updated successfully',
+                'workspace' => $workspace->fresh(),
+            ]);
+        }
+
+        return back()->with('success', 'تم تحديث مساحة العمل بنجاح.');
+    }
 }
