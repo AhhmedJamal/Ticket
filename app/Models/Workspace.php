@@ -21,13 +21,19 @@ class Workspace extends Model
     public function members(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'workspace_user')
-                    ->withPivot('role')
-                    ->withTimestamps();
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     // الصفحات الموجودة داخل مساحة العمل
     public function pages(): HasMany
     {
         return $this->hasMany(Page::class);
+    }
+
+    // وسوم مساحة العمل
+    public function tags(): HasMany
+    {
+        return $this->hasMany(Tag::class);
     }
 }

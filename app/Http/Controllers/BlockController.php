@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Block;
 use App\Models\Page;
+use App\Models\PageActivity;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class BlockController extends Controller
@@ -11,29 +14,54 @@ class BlockController extends Controller
     /**
      * إضافة بلوك جديد داخل صفحة
      */
-    public function store(Request $request, Page $page)
+    public function store(Request $request, Page $page): JsonResponse|RedirectResponse
     {
+        $allowedTypes = [
+            'paragraph', 'heading_1', 'heading_2', 'heading_3',
+            'todo', 'code', 'callout', 'quote',
+            'bulleted_list', 'numbered_list', 'divider',
+            'database', 'image', 'toggle',
+        ];
+
         $request->validate([
-            'type' => 'required|string|in:paragraph,heading_1,heading_2,heading_3,todo,code,callout,quote,bulleted_list,numbered_list,divider',
+            'type' => 'required|string|in:'.implode(',', $allowedTypes),
             'text' => 'nullable|string',
             'position' => 'nullable|integer',
         ]);
 
-        $nextPosition = $request->input('position') 
+        $nextPosition = $request->input('position')
             ?? (($page->blocks()->max('position') ?? 0) + 1);
 
-        $content = [
-            'text' => $request->input('text', ''),
-        ];
+        $content = ['text' => $request->input('text', '')];
 
         if ($request->input('type') === 'todo') {
             $content['checked'] = false;
+        }
+
+        if ($request->input('type') === 'toggle') {
+            $content['open'] = false;
+        }
+
+        if ($request->input('type') === 'callout') {
+            $content['color'] = 'default';
+        }
+
+        if ($request->input('type') === 'code') {
+            $content['language'] = 'plaintext';
         }
 
         $block = $page->blocks()->create([
             'type' => $request->input('type'),
             'content' => $content,
             'position' => $nextPosition,
+        ]);
+
+        // تسجيل النشاط
+        PageActivity::create([
+            'page_id' => $page->id,
+            'user_id' => $request->user()->id,
+            'action' => 'added_block',
+            'description' => "أُضيف بلوك {$block->type}",
         ]);
 
         if ($request->wantsJson()) {
@@ -49,11 +77,15 @@ class BlockController extends Controller
     /**
      * تحديث محتوى البلوك
      */
-    public function update(Request $request, Block $block)
+    public function update(Request $request, Block $block): JsonResponse|RedirectResponse
     {
         $request->validate([
             'text' => 'nullable|string',
             'checked' => 'nullable|boolean',
+            'open' => 'nullable|boolean',
+            'color' => 'nullable|string|max:30',
+            'language' => 'nullable|string|max:50',
+            'link_page_id' => 'nullable|integer|exists:pages,id',
             'type' => 'sometimes|string',
             'position' => 'sometimes|integer',
         ]);
@@ -66,6 +98,22 @@ class BlockController extends Controller
 
         if ($request->has('checked')) {
             $content['checked'] = (bool) $request->input('checked');
+        }
+
+        if ($request->has('open')) {
+            $content['open'] = (bool) $request->input('open');
+        }
+
+        if ($request->has('color')) {
+            $content['color'] = $request->input('color');
+        }
+
+        if ($request->has('language')) {
+            $content['language'] = $request->input('language');
+        }
+
+        if ($request->has('link_page_id')) {
+            $content['link_page_id'] = $request->input('link_page_id');
         }
 
         $data = ['content' => $content];
@@ -93,15 +141,21 @@ class BlockController extends Controller
     /**
      * حذف بلوك
      */
-    public function destroy(Request $request, Block $block)
+    public function destroy(Request $request, Block $block): JsonResponse|RedirectResponse
     {
         $page = $block->page;
+
+        PageActivity::create([
+            'page_id' => $page->id,
+            'user_id' => $request->user()->id,
+            'action' => 'deleted_block',
+            'description' => "حُذف بلوك {$block->type}",
+        ]);
+
         $block->delete();
 
         if ($request->wantsJson()) {
-            return response()->json([
-                'message' => 'Block deleted successfully',
-            ]);
+            return response()->json(['message' => 'Block deleted successfully']);
         }
 
         return redirect()->route('pages.show', $page);
@@ -110,7 +164,7 @@ class BlockController extends Controller
     /**
      * إعادة ترتيب البلوكات دفعة واحدة
      */
-    public function reorder(Request $request, Page $page)
+    public function reorder(Request $request, Page $page): JsonResponse
     {
         $request->validate([
             'blocks' => 'required|array',
@@ -124,8 +178,6 @@ class BlockController extends Controller
                 ->update(['position' => $item['position']]);
         }
 
-        return response()->json([
-            'message' => 'Blocks reordered successfully',
-        ]);
+        return response()->json(['message' => 'Blocks reordered successfully']);
     }
 }
