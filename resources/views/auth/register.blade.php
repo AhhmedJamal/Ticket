@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>إنشاء حساب — Notion Clone</title>
+    <title>إنشاء حساب — Ticket</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: 'class' }</script>
     <style>
@@ -25,7 +25,7 @@
         <div class="text-center mb-8">
             <div class="text-4xl mb-3">🚀</div>
             <h1 class="text-2xl font-bold text-[#37352f] dark:text-[#E3E3E0]">إنشاء حساب جديد</h1>
-            <p class="text-sm text-[#9b9a97] mt-1">ابدأ رحلتك مع Notion Clone</p>
+            <p class="text-sm text-[#9b9a97] mt-1">ابدأ رحلتك مع Ticket</p>
         </div>
 
         {{-- رسائل الخطأ --}}

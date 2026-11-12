@@ -1,32 +1,35 @@
 # سياق المشروع وتوثيقه المعماري (PROJECT_CONTEXT.md)
 
-> **اسم المشروع:** Notion Clone (نوشن المصغر)  
-> **البيئة والإصدار:** Laravel 11 / 12 (PHP 8.4) — Monolith Architecture  
-> **آخر تحديث:** 2026-11-10  
+> **اسم المشروع:** Ticket  
+> **البيئة والإصدار:** Laravel 13 (PHP 8.4) — Hybrid Monolith Architecture  
+> **آخر تحديث:** 2026-11-12  
 
 ---
 
 ## 1. فكرة المشروع (Project Concept)
-تطبيق لإدارة مساحات العمل والملاحظات والمهام والوثائق، يحاكي تجربة تطبيق **"نوشن" (Notion)** الشهير. يركز على:
-- بنية هرمية لا نهائية للصفحات (صفحات داخل صفحات - Nested Pages).
-- تحرير قائم على البلوكات المرنة (Block-based Editor) مثل النصوص، العناوين، الكود، المهام، الاقتباسات، والتنبيهات.
-- تجربة مستخدم سلسة ومباشرة، مع حفظ تفاعلي فوري ومظهر بسيط ونظيف (Clean Minimalist UI) بألوان مستوحاة من نوشن (White / Gray / Slate).
+تطبيق لإدارة مساحات العمل والملاحظات والمهام وقواعد البيانات والوثائق، يحاكي تجربة تطبيق **"نوشن" (Notion)**. يركز على:
+- بنية هرمية لا نهائية للصفحات (Nested Pages).
+- تحرير قائم على البلوكات المرنة (Block-based Editor) مع قائمة أوامر `/` وتلوين حي للأكواد وألوان للملاحظات.
+- قواعد بيانات مضمنة متعددة العروض (`Table`, `Board`, `Gallery`).
+- واجهة مستخدم داكنة افتراضياً (Soft Charcoal Dark Mode `#191919` / `#202020`) مع خط **Kashif Arabic** ومظهر بسيط خالٍ من التعقيد.
 
 ---
 
 ## 2. التقنيات المستخدمة (Tech Stack)
 
 ### الخلفية (Backend)
-- **PHP 8.4** مع معايير الأداء والأنماط الحديثة.
-- **Laravel Framework** كمعمارية Monolith متكاملة.
-- **Laravel Sanctum** لدعم مصادقة الـ API Tokens بجانب مصادقة الجلسات (Session-based Auth).
-- **SQLite / MySQL** كقاعدة بيانات علائقية.
+- **PHP 8.4** مع التزام كامل بالأنواع الصريحة (Strict Return & Param Types).
+- **Laravel 13** كمعمارية Hybrid Monolith متكاملة.
+- **Laravel Sanctum** لمصادقة الـ API Tokens بجانب مصادقة الجلسات (Session-based Auth).
+- **MySQL / SQLite** كقاعدة بيانات علائقية مع حقول `JSON`.
 
 ### الواجهة الأمامية (Frontend)
-- **Blade Templates:** محرك القوالب الأساسي للنظام الأحادي (Monolith).
-- **Tailwind CSS (via CDN):** لتصميم سريع، متجاوب، ومخصص بدرجات ألوان نوشن الرسمية.
-- **Alpine.js (via CDN):** لإدارة الحالة التفاعلية في المتصفح (فتح وإغلاق القوائم، التعديل المباشر Inline Editing، والطلبات غير المتزامنة Fetch/AJAX) بدون الحاجة إلى إطارات SPA معقدة (مثل React أو Vue).
-- **SortableJS (via CDN):** لدعم السحب والإفلات وإعادة ترتيب البلوكات بسلاسة.
+- **Blade Templates:** محرك القوالب الأساسي.
+- **Tailwind CSS (via CDN):** مع إعداد `darkMode: 'class'` وتفعيل الوضع الليلي افتراضياً.
+- **Alpine.js (via CDN):** لإدارة الحالة التفاعلية (Inline Editing, Slash Menu, Database Views, Overview Panel, Search Modal).
+- **SortableJS (via CDN):** لإعادة ترتيب البلوكات بالسحب والإفلات.
+- **Prism.js (via CDN):** لتلوين الأكواد البرمجية في بلوكات `code` بحسب اللغة المختارة.
+- **Kashif Arabic Font:** مستضاف محلياً في `public/fonts/KashifArabic.otf`.
 
 ---
 
@@ -37,40 +40,56 @@ notion-clone/
 ├── app/
 │   ├── Http/
 │   │   ├── Controllers/
-│   │   │   ├── AuthController.php        # مصادقة API والتحكم بالمستخدمين
-│   │   │   ├── WorkspaceController.php   # إدارة مساحات العمل وعرضها
-│   │   │   ├── PageController.php        # إنشاء وحذف وتعديل الصفحات والشجرة
-│   │   │   └── BlockController.php       # إدارة البلوكات (إضافة، تعديل، ترتيب، حذف)
+│   │   │   ├── AuthController.php             # مصادقة الويب والـ API
+│   │   │   ├── WorkspaceController.php        # إدارة مساحات العمل وعرضها
+│   │   │   ├── WorkspaceMemberController.php  # إدارة أعضاء المساحة وصلاحياتهم
+│   │   │   ├── PageController.php             # الصفحات، المفضلة، الأغلفة، تصدير Markdown
+│   │   │   ├── BlockController.php            # البلوكات (إضافة، تعديل، لون، لغة، ترتيب، حذف)
+│   │   │   ├── DatabaseController.php         # قواعد البيانات المضمنة وسجلاتها
+│   │   │   ├── TagController.php              # الوسوم وربطها بالصفحات
+│   │   │   ├── TemplateController.php         # القوالب الجاهزة وتطبيقها
+│   │   │   └── SearchController.php           # البحث الفوري (Ctrl+K)
 │   ├── Models/
-│   │   ├── User.php                      # المستخدم وعلاقاته بمساحات العمل والصفحات
-│   │   ├── Workspace.php                 # مساحة العمل والأعضاء والصفحات التابعة
-│   │   ├── Page.php                      # الصفحة وشجرتها الهرمية وبلوكاتها
-│   │   └── Block.php                     # البلوك ونوعه ومحتواه المرن (JSON)
+│   │   ├── User.php
+│   │   ├── Workspace.php
+│   │   ├── Page.php
+│   │   ├── Block.php
+│   │   ├── Tag.php
+│   │   ├── NotionDatabase.php
+│   │   ├── DatabaseRow.php
+│   │   ├── Template.php
+│   │   └── PageActivity.php
 ├── database/
-│   └── migrations/
-│       ├── ..._create_users_table.php
-│       ├── ..._create_workspaces_table.php
-│       ├── ..._create_workspace_user_table.php
-│       ├── ..._create_pages_table.php
-│       └── ..._create_blocks_table.php
+│   ├── migrations/                            # جداول المستخدمين، المساحات، الصفحات، البلوكات، الوسوم، القواعد، القوالب، النشاط
+│   └── seeders/
+│       └── TemplateSeeder.php                 # بذر القوالب الافتراضية
+├── public/
+│   └── fonts/
+│       └── KashifArabic.otf                   # خط النظام الافتراضي
 ├── resources/
 │   └── views/
 │       ├── layouts/
-│       │   └── app.blade.php             # الهيكل الأساسي (Header, Sidebar Container, Scripts)
+│       │   └── app.blade.php                  # الهيكل الأساسي، الوضع الليلي الافتراضي، Search Modal، Prism.js
 │       ├── components/
-│       │   └── sidebar.blade.php         # القائمة الجانبية والشجرة الهرمية التفاعلية
+│       │   ├── sidebar.blade.php              # الشريط الجانبي (الاختصارات، المفضلة، الشجرة، الإعدادات)
+│       │   └── sidebar-page-item.blade.php    # عنصر صفحة متداخل (Recursive)
 │       ├── auth/
-│       │   ├── login.blade.php           # شاشة تسجيل الدخول
-│       │   └── register.blade.php        # شاشة إنشاء حساب جديد
+│       │   ├── login.blade.php
+│       │   └── register.blade.php
 │       ├── workspaces/
-│       │   └── show.blade.php            # عرض مساحة العمل والترحيب
+│       │   ├── show.blade.php                 # الصفحة الرئيسية لمساحة العمل (2-Column Cards)
+│       │   └── settings.blade.php             # إعدادات مساحة العمل والأعضاء
+│       ├── templates/
+│       │   └── index.blade.php                # مكتبة القوالب (2-Column Cards)
 │       ├── pages/
-│       │   └── show.blade.php            # محرر البلوكات والصفحات الفرعية
-│       └── dashboard.blade.php           # صفحة إنشاء أول مساحة عمل
+│       │   └── show.blade.php                 # المحرر، قواعد البيانات، TOC Minimap، Overview Panel
+│       └── dashboard.blade.php                # إنشاء أول مساحة عمل
 ├── routes/
-│   ├── web.php                           # مسارات المتصفح وقوالب Blade
-│   └── api.php                           # مسارات الـ RESTful API
-└── PROJECT_CONTEXT.md                    # هذا الملف (دليل وسياق المشروع)
+│   ├── web.php
+│   └── api.php
+├── README.md
+├── PROJECT_CONTEXT.md
+└── PROGRESS.md
 ```
 
 ---
@@ -78,123 +97,49 @@ notion-clone/
 ## 4. المعمارية (Architecture Overview)
 
 يعتمد المشروع على نمط **Hybrid Monolith**:
-1. **Blade كواجهة أساسية:** يتم استدعاء الصفحات وتمرير البيانات من الـ Controllers بالطريقة التقليدية السريعة، مما يحافظ على بساطة الـ SEO وسرعة التحميل الأولى.
-2. **Alpine.js للتفاعل الفوري:** العمليات الدقيقة (تعديل العنوان `Inline-edit`، تحديد الـ Todo Checkbox، تعديل محتوى البلوك) تتم عبر طلبات خلفية `Fetch API (PUT / DELETE / POST)` دون عمل Refresh كامل للصفحة.
-3. **Dual-Response Controllers:** صُممت الـ Controllers لتخدم طلبات الـ Web العادية وتعيد `view()` أو `redirect()`، وفي حال كان الطلب `wantsJson()` تعيد استجابة JSON فورية متوافقة مع طلبات الـ Ajax / Alpine.
+1. **Blade كواجهة أساسية:** تحميل سريع ومنظم للبيانات من الـ Controllers.
+2. **Alpine.js + Fetch API للتفاعل الفوري:** تعديل العنوان، الأيقونة، الغلاف، المفضلة، البلوكات (النص، اللون، اللغة، الحالة)، وسجلات قواعد البيانات دون إعادة تحميل الصفحة.
+3. **Dual-Response Controllers:** تدعم طلبات المتصفح العادية وطلبات JSON (`wantsJson()`).
 
 ---
 
 ## 5. قواعد كتابة الكود (Coding Conventions & Rules)
 
-- **PHP 8.4 Standards:**
-  - استخدام الأنواع الصريحة (Explicit Return & Param Types).
-  - استخدام Constructor Property Promotion عند الحاجة.
-  - إحاطة جمل التحكم بالأقواس المعقوفة دائماً `{ ... }`.
-- **Laravel Best Practices:**
-  - استخدام التوجيهات المسماة (Named Routes) مع المساعد `route()`.
-  - الالتزام بتنسيق كود Laravel عبر **Laravel Pint** (`vendor/bin/pint --format agent`).
-  - تجنب استدعاء الخصائص المحمية في الطلبات؛ استخدام `$request->input('field')` بدلاً من `$request->field` لمنع تعارضات محلل الـ IDE أو الخصائص المحمية في سيمفوني.
-  - الحذف المتتالي (Cascade on Delete) في قواعد البيانات لضمان عدم بقاء بيانات يتيمة عند حذف صفحة أو مساحة عمل.
+- **PHP 8.4 Standards:** أنواع إرجاع ومعاملات صريحة، أقواس معقوفة `{ ... }` لجميع جمل التحكم، وتنسيق عبر **Laravel Pint** (`vendor/bin/pint --dirty --format agent`).
+- **Laravel Best Practices:** استخدام `route()`، وتجنب `$request->content` لصالح `$request->input(...)`، وتمرير البيانات المعقدة من Blade إلى JavaScript عبر `\Illuminate\Support\Js::from(...)` بدلاً من `@json(...)` متعدد الأسطر.
 - **Frontend Conventions:**
-  - استخدام التوجيه `x-cloak` دائماً في عناصر Alpine.js التي تختفي لتفادي وميض المحتوى قبل التحميل (FOUC).
-  - التناسق اللوني مع درجات رمادية محايدة (`#F7F7F5` للسايدبار، `#E9E9E7` للحدود، `#37352F` للنصوص الرئيسية).
+  - استخدام `x-cloak` مع Alpine.js.
+  - لوحة ألوان Notion الداكنة (`#191919` للمحرر، `#202020` للسايدبار، `#252525` للقوائم المنبثقة، `#2E2E2E` للحدود، `#E3E3E0` للنصوص).
+  - الوضع الليلي افتراضي مع منع الوميض (`FOUC`) عبر سكريبت مبكر في `<head>`.
 
 ---
 
-## 6. الجداول وقاعدة البيانات والعلاقات (Database Schema & Relations)
+## 6. الجداول والعلاقات (Database Schema & Relations)
 
 ```mermaid
 erDiagram
     USERS ||--o{ WORKSPACES : owns
     USERS }o--o{ WORKSPACES : member_of
     WORKSPACES ||--o{ PAGES : contains
+    WORKSPACES ||--o{ TAGS : defines
     PAGES ||--o{ PAGES : parent_child
     PAGES ||--o{ BLOCKS : contains
-
-    USERS {
-        bigint id PK
-        string name
-        string email
-        string password
-    }
-
-    WORKSPACES {
-        bigint id PK
-        string name
-        string slug
-        bigint user_id FK "Owner ID"
-    }
-
-    WORKSPACE_USER {
-        bigint workspace_id FK
-        bigint user_id FK
-        string role "admin / member"
-    }
-
-    PAGES {
-        bigint id PK
-        bigint workspace_id FK
-        bigint parent_id FK "Self-referencing for nesting"
-        string title
-        string icon "Emoji / Icon"
-        bigint created_by FK
-    }
-
-    BLOCKS {
-        bigint id PK
-        bigint page_id FK
-        string type "paragraph, heading_1, code, todo..."
-        json content "Flexible JSON payload"
-        integer position "Order of appearance"
-    }
+    PAGES }o--o{ TAGS : tagged_with
+    PAGES ||--o{ NOTION_DATABASES : embeds
+    NOTION_DATABASES ||--o{ DATABASE_ROWS : has
+    PAGES ||--o{ PAGE_ACTIVITIES : logs
 ```
 
-### العلاقات في Eloquent:
-- `Workspace -> owner()` : BelongsTo(User)
-- `Workspace -> members()` : BelongsToMany(User, 'workspace_user')
-- `Workspace -> pages()` : HasMany(Page)
-- `Page -> workspace()` : BelongsTo(Workspace)
-- `Page -> parent()` : BelongsTo(Page, 'parent_id')
-- `Page -> children()` : HasMany(Page, 'parent_id')
-- `Page -> blocks()` : HasMany(Block)->orderBy('position')
-- `Block -> page()` : BelongsTo(Page)
+### العلاقات الأساسية في Eloquent:
+- `Workspace`: `owner()`, `members()`, `pages()`, `tags()`.
+- `Page`: `workspace()`, `parent()`, `children()`, `creator()`, `blocks()`, `tags()`, `databases()`, `activities()`.
+- `NotionDatabase`: `page()`, `rows()`.
+- `Block`: `page()`.
 
 ---
 
-## 7. ما تم تنفيذه حتى الآن (Implemented Features)
+## 7. القرارات الهندسية الهامة (Decisions & Troubleshooting)
 
-- [x] **نظام المصادقة (Auth):** تسجيل الدخول، إنشاء حساب، والخروج، مع شاشات نظيفة بتنسيق نوشن.
-- [x] **مساحات العمل (Workspaces):** دعم إنشاء مساحات العمل وربط المالك والأعضاء بها وتوليد الـ Slugs.
-- [x] **القائمة الجانبية وشجرة الصفحات الهرمية (Sidebar & Nested Pages):**
-  - شجرة لا نهائية للصفحات والصفحات الفرعية (Root & Children).
-  - دعم زر الطي والفتح (Chevron Toggle).
-  - زر `(+)` لإضافة صفحة فرعية فورية من القائمة الجانبية أو من داخل الصفحة.
-  - زر لحذف الصفحة مع بنودها التابعة.
-  - إمكانية طي وإظهار السايدبار بالكامل من الزر العلوي.
-- [x] **عرض الصفحات المتداخلة داخل المحتوى (Sub-pages in Page View):**
-  - عرض بطاقات أنيقة لأي صفحات داخلية تابعة للصفحة المعروضة حالياً مع روابط سريعة لدخولها.
-- [x] **محرر البلوكات الشامل (Multi-type Block Editor):**
-  - **نص عادي (Paragraph):** متعدد الأسطر مع تمدد تلقائي.
-  - **عناوين مختلفة:** Heading 1، Heading 2، و Heading 3.
-  - **قائمة مهام (To-do):** Checkbox تفاعلي يشطب النص ويحفظ الحالة تلقائياً عبر Ajax.
-  - **كتلة كود برمجى (Code Snippet):** محرر داكن مريح ومميز مع زر نسخ الكود.
-  - **صندوق ملاحظة/تنبيه (Callout):** خلفية مميزة وأيقونة بارزة.
-  - **اقتباس مميز (Quote):** خط عمودي أنيق ونص مائل.
-  - **قوائم تنظيمية:** قائمة نقطية (Bullet List)، قائمة مرقمة (Numbered List)، وخط فاصل (Divider).
-  - **حذف وتعديل البلوكات:** حفظ فوري عند الـ `blur` وزر حذف عند الـ `hover`.
-- [x] **تعديل الأيقونة الفوري (Emoji Picker):** تغيير أيقونة الصفحة وتحديثها في قاعدة البيانات فورياً.
-- [x] **العنوان التفاعلي (Inline Editable Title):** تعديل العنوان في مكانه بدون الحاجة لنموذج منفصل.
-
----
-
-## 8. المشاكل والقرارات الهندسية الهامة (Decisions & Troubleshooting)
-
-1. **مشكلة `Member has protected visibility` في `BlockController.php`:**
-   - *السبب:* استخدام `$request->content` سبب تحذير IDE / static analysis بسبب وراثة `Request` لخاصية محمية `$content` من Symfony.
-   - *الحل:* استبدالها بـ `$request->input('content')` الرسمية لتفادي الغموض.
-2. **اعتماد نمط التخزين المرن للبلوكات `json content`:**
-   - *القرار:* بدلاً من إنشاء جداول منفصلة لكل نوع من البلوكات، تم استخدام جدول موحد `blocks` يحتوي على حقل `type` وحقل `json content`. هذا يسمح بإضافة أنواع بلوكات لا حصر لها مستقبلاً دون تعديل في بنية الجداول.
-3. **قرار الـ Sidebar في الـ Layout:**
-   - *المشكلة السابقة:* استخدام الـ `@slot('sidebar')` في بعض الصفحات كان يسبب اختفاء القائمة الجانبية عند تحميل مسارات معينة.
-   - *الحل المعماري:* جعل السايدبار مكوّناً أساسياً مضمناً عبر `@include('components.sidebar')` داخل الـ Layout الأساسي لضمان ثباته وظهوره الدائم والتحكم به عبر زر الطي والفتح بسلاسة.
-
+1. **تجنب تعارض `@json(...)` في Blade:** عند تمرير مجموعات متداخلة تحتوي على Closures (مثل بيانات قواعد البيانات في `pages/show.blade.php`)، يتم تجهيز المصفوفة في `@php` وتمريرها عبر `\Illuminate\Support\Js::from(...)` لتفادي أخطاء تحليل أقواس Blade.
+2. **تخزين خصائص البلوكات في JSON:** حقول `checked`, `open`, `color`, `language`, `link_page_id` تُخزن داخل `blocks.content` مما يتيح توسيع أنواع البلوكات دون تعديل الجداول.
+3. **تلوين الأكواد الحي (Prism.js Overlay):** استخدام طبقة `<pre><code>` متزامنة أسفل `<textarea>` شفاف لتوفير تلوين فوري للأكواد أثناء الكتابة مع الحفاظ على محاذاة المؤشر.
