@@ -28,6 +28,13 @@
             <p class="text-sm text-[#9b9a97] mt-1">سجل دخولك للمتابعة</p>
         </div>
 
+        {{-- رسالة النجاح --}}
+        @if(session('status'))
+            <div class="mb-5 p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                <p class="text-sm text-emerald-700 dark:text-emerald-300">{{ session('status') }}</p>
+            </div>
+        @endif
+
         {{-- رسائل الخطأ --}}
         @if($errors->any())
             <div class="mb-5 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg">
@@ -65,14 +72,19 @@
                 >
             </div>
 
-            <div class="flex items-center gap-2">
-                <input
-                    type="checkbox"
-                    name="remember"
-                    id="remember"
-                    class="w-4 h-4 rounded border-[#9b9a97] accent-[#2eaadc]"
-                >
-                <label for="remember" class="text-sm text-[#9b9a97]">تذكرني</label>
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <input
+                        type="checkbox"
+                        name="remember"
+                        id="remember"
+                        class="w-4 h-4 rounded border-[#9b9a97] accent-[#2eaadc]"
+                    >
+                    <label for="remember" class="text-sm text-[#9b9a97]">تذكرني</label>
+                </div>
+                <a href="{{ route('password.request') }}" class="text-xs text-[#2eaadc] hover:underline">
+                    نسيت كلمة المرور؟
+                </a>
             </div>
 
             <button

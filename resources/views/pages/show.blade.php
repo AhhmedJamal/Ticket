@@ -24,7 +24,7 @@
             </div>
         @else
             {{-- شريط علوي خفي لإضافة غلاف عند التمرير --}}
-            <div class="h-8 group/addcover flex items-end px-12">
+            <div class="h-8 group/addcover flex items-end px-4 sm:px-12">
                 <button @click="showCoverPicker = !showCoverPicker" class="text-xs text-notion-muted opacity-0 group-hover/addcover:opacity-100 hover:text-notion-text dark:hover:text-[#E3E3E0] hover:bg-notion-hover dark:hover:bg-[#2C2C2C] px-2 py-0.5 rounded transition-all">
                     🖼️ إضافة غلاف
                 </button>
@@ -48,7 +48,7 @@
     </div>
 
     {{-- =================== رأس الصفحة =================== --}}
-    <div class="max-w-[740px] mx-auto px-8 sm:px-12 {{ $hasCover ? 'pt-0' : 'pt-10' }} pb-2 group/header">
+    <div class="max-w-[740px] mx-auto px-4 sm:px-12 {{ $hasCover ? 'pt-0' : 'pt-10' }} pb-2 group/header">
 
         {{-- الأيقونة --}}
         <div class="flex items-end justify-between mb-4 {{ $hasCover ? '-mt-9 relative z-10' : '' }}">
@@ -149,7 +149,7 @@
     </div>
 
     {{-- =================== المحتوى الرئيسي =================== --}}
-    <div class="max-w-[740px] mx-auto px-8 sm:px-12 py-4 space-y-4">
+    <div class="max-w-[740px] mx-auto px-4 sm:px-12 py-4 space-y-4">
 
         {{-- الصفحات الفرعية --}}
         @if($page->children->count() > 0)
@@ -556,12 +556,10 @@
                     this.blockType = type;
                     this.blockLabel = label;
                     this.slashOpen = false;
-                    if (this.blockText === '/') this.blockText = '';
-                    if (type === 'divider') {
-                        this.$nextTick(() => this.$refs.addBlockForm.submit());
-                    } else {
-                        this.$nextTick(() => this.$refs.blockInput.focus());
+                    if (this.blockText.trim() === '/') {
+                        this.blockText = '';
                     }
+                    this.$nextTick(() => this.$refs.addBlockForm.submit());
                 }
             }"
             class="pt-1 space-y-2 relative"
@@ -727,7 +725,7 @@
         x-transition:enter="transition ease-out duration-150"
         x-transition:enter-start="opacity-0 -translate-x-4"
         x-transition:enter-end="opacity-100 translate-x-0"
-        class="w-72 shrink-0 border-r border-notion-border dark:border-[#2E2E2E] bg-notion-sidebar/60 dark:bg-[#202020] p-5 space-y-6 overflow-y-auto"
+        class="fixed inset-y-0 left-0 z-40 lg:static lg:z-auto w-72 shrink-0 border-r border-notion-border dark:border-[#2E2E2E] bg-notion-sidebar lg:bg-notion-sidebar/60 dark:bg-[#202020] p-5 space-y-6 overflow-y-auto shadow-2xl lg:shadow-none"
     >
         {{-- نظرة عامة --}}
         <div>

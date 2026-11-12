@@ -105,20 +105,39 @@
 </head>
 <body
     class="h-screen overflow-hidden flex flex-col font-sans antialiased text-notion-text bg-white dark:bg-[#191919] dark:text-[#E3E3E0]"
+    @resize.window="handleResize()"
     @keydown.window.ctrl.k.prevent="searchOpen = true"
     @keydown.window.ctrl.shift.l.prevent="toggleDarkMode()"
     @keydown.window.slash.prevent="if(document.activeElement.tagName === 'BODY') searchOpen = true"
 >
 
-    <div class="flex-1 flex overflow-hidden">
+    <div class="flex-1 flex overflow-hidden relative">
+
+        {{-- خلفية إغلاق السايدبار على الموبايل --}}
+        <div
+            x-show="sidebarOpen"
+            x-cloak
+            @click="sidebarOpen = false"
+            x-transition:enter="transition-opacity duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="transition-opacity duration-150"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="fixed inset-0 bg-black/50 backdrop-blur-[1px] z-30 md:hidden"
+        ></div>
 
         {{-- ================= الشريط الجانبي (Sidebar) ================= --}}
         <aside
             x-show="sidebarOpen"
-            x-transition:enter="transition-transform duration-200"
+            x-cloak
+            x-transition:enter="transition-transform duration-200 ease-out"
             x-transition:enter-start="translate-x-full"
             x-transition:enter-end="translate-x-0"
-            class="w-60 bg-notion-sidebar dark:bg-[#202020] border-l border-notion-border dark:border-[#2A2A2A] flex flex-col h-full shrink-0 select-none z-20"
+            x-transition:leave="transition-transform duration-150 ease-in"
+            x-transition:leave-start="translate-x-0"
+            x-transition:leave-end="translate-x-full"
+            class="fixed inset-y-0 right-0 w-64 md:w-60 md:static bg-notion-sidebar dark:bg-[#202020] border-l border-notion-border dark:border-[#2A2A2A] flex flex-col h-full shrink-0 select-none z-40 md:z-20 shadow-2xl md:shadow-none"
         >
             @include('components.sidebar')
         </aside>
@@ -127,8 +146,8 @@
         <main class="flex-1 flex flex-col min-w-0 overflow-y-auto bg-white dark:bg-[#191919] relative">
 
             {{-- الشريط العلوي (Notion-style flat topbar) --}}
-            <header class="h-11 flex items-center justify-between px-3 shrink-0 bg-white/95 dark:bg-[#191919]/95 backdrop-blur-sm sticky top-0 z-10">
-                <div class="flex items-center gap-1.5 text-[13px] text-notion-muted min-w-0">
+            <header class="h-11 flex items-center justify-between px-2 sm:px-3 shrink-0 bg-white/95 dark:bg-[#191919]/95 backdrop-blur-sm sticky top-0 z-10">
+                <div class="flex items-center gap-1 sm:gap-1.5 text-[13px] text-notion-muted min-w-0">
                     {{-- زر إظهار/إخفاء السايدبار --}}
                     <button
                         @click="sidebarOpen = !sidebarOpen"
@@ -138,19 +157,19 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                     </button>
 
-                    <a href="{{ isset($workspace) ? route('workspaces.show', $workspace) : '#' }}" class="px-1.5 py-0.5 rounded hover:bg-notion-hover dark:hover:bg-[#2C2C2C] hover:text-notion-text dark:hover:text-[#E3E3E0] text-notion-muted truncate max-w-[140px] transition-colors">
+                    <a href="{{ isset($workspace) ? route('workspaces.show', $workspace) : '#' }}" class="px-1.5 py-0.5 rounded hover:bg-notion-hover dark:hover:bg-[#2C2C2C] hover:text-notion-text dark:hover:text-[#E3E3E0] text-notion-muted truncate max-w-[90px] sm:max-w-[140px] transition-colors">
                         {{ $workspace->name ?? 'Notion' }}
                     </a>
 
                     @isset($page)
-                        <span class="text-notion-muted/40">/</span>
+                        <span class="text-notion-muted/40 hidden sm:inline">/</span>
                         @if($page->parent)
-                            <a href="{{ route('pages.show', $page->parent) }}" class="px-1.5 py-0.5 rounded hover:bg-notion-hover dark:hover:bg-[#2C2C2C] hover:text-notion-text dark:hover:text-[#E3E3E0] text-notion-muted truncate max-w-[140px] transition-colors">
+                            <a href="{{ route('pages.show', $page->parent) }}" class="hidden sm:inline-block px-1.5 py-0.5 rounded hover:bg-notion-hover dark:hover:bg-[#2C2C2C] hover:text-notion-text dark:hover:text-[#E3E3E0] text-notion-muted truncate max-w-[140px] transition-colors">
                                 {{ $page->parent->icon }} {{ $page->parent->title }}
                             </a>
-                            <span class="text-notion-muted/40">/</span>
+                            <span class="text-notion-muted/40 hidden sm:inline">/</span>
                         @endif
-                        <span class="px-1.5 py-0.5 text-notion-text dark:text-[#E3E3E0] flex items-center gap-1.5 truncate max-w-[220px]">
+                        <span class="px-1.5 py-0.5 text-notion-text dark:text-[#E3E3E0] flex items-center gap-1.5 truncate max-w-[110px] sm:max-w-[220px]">
                             <span>{{ $page->icon ?? '📄' }}</span>
                             <span class="truncate">{{ $page->title }}</span>
                         </span>
@@ -246,7 +265,7 @@
             </header>
 
             {{-- المحتوى الداخلي --}}
-            <div class="flex-1 px-12 py-8 max-w-4xl w-full mx-auto">
+            <div class="flex-1 px-4 sm:px-8 md:px-12 py-6 md:py-8 max-w-5xl w-full mx-auto">
                 @yield('content')
             </div>
         </main>
@@ -339,13 +358,22 @@
     <script>
     function appShell() {
         return {
-            sidebarOpen: true,
+            isDesktop: window.innerWidth >= 768,
+            sidebarOpen: window.innerWidth >= 768,
             overviewOpen: false,
             searchOpen: false,
             searchQuery: '',
             searchResults: [],
             searchLoading: false,
             darkMode: localStorage.getItem('darkMode') !== 'false',
+
+            handleResize() {
+                const nowDesktop = window.innerWidth >= 768;
+                if (nowDesktop !== this.isDesktop) {
+                    this.isDesktop = nowDesktop;
+                    this.sidebarOpen = nowDesktop;
+                }
+            },
 
             toggleDarkMode() {
                 this.darkMode = !this.darkMode;
