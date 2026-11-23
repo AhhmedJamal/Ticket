@@ -32,6 +32,12 @@ class NotionDatabase extends Model
         return $this->hasMany(DatabaseRow::class, 'notion_database_id')->orderBy('position');
     }
 
+    /** العروض المحفوظة للقاعدة */
+    public function views(): HasMany
+    {
+        return $this->hasMany(DatabaseView::class, 'notion_database_id')->orderBy('position', 'asc');
+    }
+
     /**
      * أنواع الأعمدة المتاحة
      *

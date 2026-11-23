@@ -10,15 +10,66 @@ use Illuminate\Http\Request;
 class SearchController extends Controller
 {
     /**
-     * البحث الشامل في عناوين الصفحات ومحتوى البلوكات
+     * البحث الشامل في عناوين الصفحات ومحتوى البلوكات بالإضافة للأوامر السريعة (Command Palette)
      */
     public function search(Request $request): JsonResponse
     {
         $query = trim($request->input('q', ''));
         $user = $request->user();
 
+        // 1. الأوامر السريعة (Quick Commands)
+        $commands = collect([
+            [
+                'type' => 'action',
+                'id' => 'create_page',
+                'title' => 'إنشاء صفحة جديدة',
+                'icon' => '➕',
+                'category' => 'إجراءات سريعة',
+                'action' => 'create_page',
+                'match' => 'command',
+            ],
+            [
+                'type' => 'action',
+                'id' => 'toggle_dark',
+                'title' => 'تبديل المظهر الداكن / الفاتح',
+                'icon' => '🌓',
+                'category' => 'إجراءات سريعة',
+                'action' => 'toggle_theme',
+                'match' => 'command',
+            ],
+            [
+                'type' => 'action',
+                'id' => 'browse_templates',
+                'title' => 'استعراض مكتبة القوالب',
+                'icon' => '📑',
+                'category' => 'إجراءات سريعة',
+                'action' => 'open_templates',
+                'match' => 'command',
+            ],
+            [
+                'type' => 'action',
+                'id' => 'export_markdown',
+                'title' => 'تصدير الصفحة الحالية كـ Markdown',
+                'icon' => '📥',
+                'category' => 'إجراءات سريعة',
+                'action' => 'export_markdown',
+                'match' => 'command',
+            ],
+        ]);
+
+        $filteredCommands = $commands->filter(function ($cmd) use ($query) {
+            if (empty($query)) {
+                return true;
+            }
+
+            return mb_stripos($cmd['title'], $query) !== false || mb_stripos($cmd['id'], $query) !== false;
+        })->values();
+
         if (strlen($query) < 2) {
-            return response()->json(['results' => []]);
+            return response()->json([
+                'results' => $filteredCommands,
+                'commands' => $filteredCommands,
+            ]);
         }
 
         // جمع كل مساحات العمل التي يملكها أو ينتمي إليها المستخدم
@@ -40,6 +91,7 @@ class SearchController extends Controller
                 'workspace' => $page->workspace?->name,
                 'url' => route('pages.show', $page),
                 'match' => 'title',
+                'category' => 'صفحات',
             ]);
 
         // البحث في محتوى البلوكات
@@ -58,11 +110,15 @@ class SearchController extends Controller
                 'workspace' => $block->page?->workspace?->name,
                 'url' => route('pages.show', $block->page_id),
                 'match' => 'content',
+                'category' => 'محتوى البلوكات',
                 'excerpt' => mb_substr($block->content['text'] ?? '', 0, 80),
             ]);
 
-        $results = $pageResults->merge($blockResults)->unique('url')->values();
+        $results = $filteredCommands->merge($pageResults)->merge($blockResults)->values();
 
-        return response()->json(['results' => $results]);
+        return response()->json([
+            'results' => $results,
+            'commands' => $filteredCommands,
+        ]);
     }
 }

@@ -1,9 +1,12 @@
 <?php
 
+use App\Http\Controllers\BlockCommentController;
 use App\Http\Controllers\BlockController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DatabaseController;
+use App\Http\Controllers\DatabaseViewController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\PagePermissionController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TemplateController;
@@ -84,6 +87,17 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/blocks/{block}', [BlockController::class, 'destroy'])->name('blocks.destroy');
     Route::post('/pages/{page}/blocks/reorder', [BlockController::class, 'reorder'])->name('blocks.reorder');
 
+    // صلاحيات الصفحة (Page RBAC Permissions)
+    Route::get('/pages/{page}/permissions', [PagePermissionController::class, 'index'])->name('pages.permissions.index');
+    Route::post('/pages/{page}/permissions', [PagePermissionController::class, 'store'])->name('pages.permissions.store');
+    Route::delete('/pages/{page}/permissions/{user}', [PagePermissionController::class, 'destroy'])->name('pages.permissions.destroy');
+
+    // تعليقات البلوكات (Block Comments)
+    Route::get('/blocks/{block}/comments', [BlockCommentController::class, 'index'])->name('blocks.comments.index');
+    Route::post('/blocks/{block}/comments', [BlockCommentController::class, 'store'])->name('blocks.comments.store');
+    Route::patch('/comments/{comment}/resolve', [BlockCommentController::class, 'resolve'])->name('comments.resolve');
+    Route::delete('/comments/{comment}', [BlockCommentController::class, 'destroy'])->name('comments.destroy');
+
     // قواعد البيانات المدمجة (Inline Databases)
     Route::post('/pages/{page}/databases', [DatabaseController::class, 'store'])->name('databases.store');
     Route::put('/databases/{database}', [DatabaseController::class, 'update'])->name('databases.update');
@@ -91,4 +105,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/databases/{database}/rows', [DatabaseController::class, 'addRow'])->name('databases.rows.store');
     Route::put('/database-rows/{row}', [DatabaseController::class, 'updateRow'])->name('databases.rows.update');
     Route::delete('/database-rows/{row}', [DatabaseController::class, 'deleteRow'])->name('databases.rows.destroy');
+
+    // عروض قواعد البيانات (Multi-View Databases: Table, Board, List, Gallery)
+    Route::post('/databases/{database}/views', [DatabaseViewController::class, 'store'])->name('databases.views.store');
+    Route::match(['put', 'patch'], '/database-views/{view}', [DatabaseViewController::class, 'update'])->name('databases.views.update');
+    Route::delete('/database-views/{view}', [DatabaseViewController::class, 'destroy'])->name('databases.views.destroy');
 });

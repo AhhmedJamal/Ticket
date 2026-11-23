@@ -75,6 +75,12 @@ class Page extends Model
         return $this->hasMany(NotionDatabase::class, 'page_id');
     }
 
+    /** صلاحيات الصفحة المخصصة للمستخدمين */
+    public function permissions(): HasMany
+    {
+        return $this->hasMany(PagePermission::class);
+    }
+
     // =================== Scopes ===================
 
     /** فلترة الصفحات المفضلة فقط */
@@ -83,7 +89,37 @@ class Page extends Model
         return $query->where('is_favorite', true);
     }
 
-    // =================== Helpers ===================
+    // =================== Helpers & RBAC ===================
+
+    /**
+     * تحديد دور المستخدم في هذه الصفحة: 'editor' | 'commenter' | 'viewer' | null
+     */
+    public function getUserRole(?User $user): ?string
+    {
+        if (! $user) {
+            return null;
+        }
+
+        // 1. مالك مساحة العمل دائماً Editor كامل
+        if ($this->workspace && $this->workspace->user_id === $user->id) {
+            return 'editor';
+        }
+
+        // 2. إذا كان المشرف (Admin) في مساحة العمل
+        $member = $this->workspace?->members()->where('users.id', $user->id)->first();
+        if ($member && $member->pivot->role === 'admin') {
+            return 'editor';
+        }
+
+        // 3. صلاحية محددة صراحة للصفحة
+        $perm = $this->permissions()->where('user_id', $user->id)->first();
+        if ($perm) {
+            return $perm->role;
+        }
+
+        // 4. في حالة عدم وجود تقييد خاص، عضو مساحة العمل يكون editor افتراضياً
+        return $member ? 'editor' : null;
+    }
 
     /**
      * خيارات ألوان غلاف الصفحة (Tailwind gradient classes)
@@ -98,9 +134,6 @@ class Page extends Model
             'gradient-green' => ['label' => 'أخضر', 'class' => 'bg-gradient-to-r from-green-400 to-teal-500'],
             'gradient-orange' => ['label' => 'برتقالي', 'class' => 'bg-gradient-to-r from-orange-400 to-red-400'],
             'gradient-gray' => ['label' => 'رمادي', 'class' => 'bg-gradient-to-r from-gray-300 to-gray-500'],
-            'gradient-yellow' => ['label' => 'ذهبي', 'class' => 'bg-gradient-to-r from-yellow-300 to-orange-400'],
-            'gradient-teal' => ['label' => 'تيل', 'class' => 'bg-gradient-to-r from-teal-400 to-cyan-500'],
-            'gradient-rose' => ['label' => 'وردي', 'class' => 'bg-gradient-to-r from-rose-400 to-pink-600'],
         ];
     }
 }

@@ -287,10 +287,10 @@
         {{-- خلفية شفافة --}}
         <div class="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm" @click="searchOpen = false"></div>
 
-        {{-- نافذة البحث --}}
-        <div class="relative w-full max-w-xl bg-white dark:bg-[#252525] rounded-2xl shadow-2xl border border-notion-border dark:border-[#3a3a3a] overflow-hidden z-10">
+        {{-- نافذة البحث واللوحة الذكية (Command Palette) --}}
+        <div class="relative w-full max-w-xl bg-white dark:bg-[#222222] rounded-2xl shadow-2xl border border-notion-border dark:border-[#333333] overflow-hidden z-10 flex flex-col max-h-[85vh]">
             {{-- حقل البحث --}}
-            <div class="flex items-center gap-3 px-4 py-3 border-b border-notion-border dark:border-[#3a3a3a]">
+            <div class="flex items-center gap-3 px-4 py-3 border-b border-notion-border dark:border-[#2D2D2D] bg-notion-sidebar/30 dark:bg-[#1E1E1E]">
                 <svg class="w-4 h-4 text-notion-muted flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
                 </svg>
@@ -298,59 +298,71 @@
                     type="text"
                     id="search-input"
                     x-model="searchQuery"
-                    @input.debounce.300ms="performSearch()"
-                    placeholder="ابحث في الصفحات والمحتوى..."
-                    class="flex-1 text-sm bg-transparent border-none outline-none text-notion-text dark:text-[#E8E8E5] placeholder-notion-muted"
-                    x-init="$watch('searchOpen', val => { if(val) $nextTick(() => $el.focus()) })"
+                    @input.debounce.200ms="performSearch()"
+                    @keydown.down.prevent="selectedIndex = Math.min(selectedIndex + 1, searchResults.length - 1)"
+                    @keydown.up.prevent="selectedIndex = Math.max(selectedIndex - 1, 0)"
+                    @keydown.enter.prevent="if(searchResults[selectedIndex]) executePaletteItem(searchResults[selectedIndex])"
+                    placeholder="ابحث عن صفحة، أو نفّذ أمراً سريعاً..."
+                    class="flex-1 text-sm bg-transparent border-none outline-none text-notion-text dark:text-[#E8E8E5] placeholder:text-notion-muted/60"
+                    x-init="$watch('searchOpen', val => { if(val) { selectedIndex = 0; $nextTick(() => { $el.focus(); performSearch(); }); } })"
                 />
-                <button @click="searchOpen = false" class="text-xs text-notion-muted hover:text-notion-text dark:hover:text-white px-1">Esc</button>
+                <div class="flex items-center gap-1.5 text-[10px] text-notion-muted">
+                    <span class="px-1.5 py-0.5 rounded bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#383838]">Esc</span>
+                </div>
             </div>
 
-            {{-- نتائج البحث --}}
-            <div class="max-h-80 overflow-y-auto">
+            {{-- نتائج البحث والأوامر --}}
+            <div class="max-h-96 overflow-y-auto p-2 space-y-1">
                 {{-- حالة التحميل --}}
                 <div x-show="searchLoading" class="px-4 py-6 text-center text-sm text-notion-muted">
                     <div class="inline-block w-4 h-4 border-2 border-notion-muted border-t-transparent rounded-full animate-spin"></div>
                 </div>
 
-                {{-- نتائج --}}
+                {{-- عرض النتائج --}}
                 <template x-if="!searchLoading && searchResults.length > 0">
-                    <div class="py-1">
-                        <template x-for="result in searchResults" :key="result.url">
-                            <a :href="result.url"
-                               @click="searchOpen = false"
-                               class="flex items-center gap-3 px-4 py-2.5 hover:bg-notion-hover dark:hover:bg-[#2F2F2F] transition-colors group">
-                                <span class="text-lg flex-shrink-0" x-text="result.icon"></span>
-                                <div class="flex-1 min-w-0">
-                                    <div class="text-sm font-medium text-notion-text dark:text-[#E8E8E5] truncate" x-text="result.title"></div>
-                                    <div class="flex items-center gap-2 mt-0.5">
-                                        <span class="text-xs text-notion-muted" x-text="result.workspace"></span>
-                                        <template x-if="result.match === 'content' && result.excerpt">
-                                            <span class="text-xs text-notion-muted truncate max-w-xs">· "<span x-text="result.excerpt"></span>"</span>
-                                        </template>
+                    <div class="space-y-1">
+                        <template x-for="(result, index) in searchResults" :key="result.url || result.id || index">
+                            <div
+                                @click="executePaletteItem(result)"
+                                @mouseenter="selectedIndex = index"
+                                :class="selectedIndex === index ? 'bg-notion-hover dark:bg-[#2D2D2D] text-notion-text dark:text-[#F0F0ED]' : 'text-notion-muted dark:text-[#B0B0AC]'"
+                                class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors"
+                            >
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <span class="text-base flex-shrink-0" x-text="result.icon"></span>
+                                    <div class="min-w-0">
+                                        <div class="text-xs font-medium truncate" x-text="result.title"></div>
+                                        <div class="flex items-center gap-2 mt-0.5 text-[10px] opacity-75">
+                                            <span x-text="result.workspace || result.category"></span>
+                                            <template x-if="result.match === 'content' && result.excerpt">
+                                                <span class="truncate max-w-xs">· "<span x-text="result.excerpt"></span>"</span>
+                                            </template>
+                                        </div>
                                     </div>
                                 </div>
-                                <svg class="w-3 h-3 text-notion-muted opacity-0 group-hover:opacity-100 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                </svg>
-                            </a>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span class="text-[9px] px-1.5 py-0.5 rounded-md bg-notion-sidebar dark:bg-[#1E1E1E] border border-notion-border dark:border-[#333333] text-notion-muted" x-text="result.category || 'أمر'"></span>
+                                </div>
+                            </div>
                         </template>
                     </div>
                 </template>
 
                 {{-- لا نتائج --}}
-                <template x-if="!searchLoading && searchQuery.length >= 2 && searchResults.length === 0">
-                    <div class="px-4 py-8 text-center text-sm text-notion-muted">
-                        لا توجد نتائج لـ "<span x-text="searchQuery" class="font-medium"></span>"
+                <template x-if="!searchLoading && searchResults.length === 0">
+                    <div class="px-4 py-8 text-center text-xs text-notion-muted">
+                        لا توجد نتائج مطابقة لـ "<span x-text="searchQuery" class="font-medium text-notion-text dark:text-white"></span>"
                     </div>
                 </template>
+            </div>
 
-                {{-- الحالة الافتراضية --}}
-                <template x-if="!searchLoading && searchQuery.length < 2">
-                    <div class="px-4 py-6 text-center text-xs text-notion-muted">
-                        اكتب حرفين على الأقل للبدء في البحث
-                    </div>
-                </template>
+            {{-- شريط الاختصارات السفلي --}}
+            <div class="px-4 py-2 border-t border-notion-border dark:border-[#2D2D2D] bg-notion-sidebar/40 dark:bg-[#1A1A1A] flex items-center justify-between text-[11px] text-notion-muted">
+                <div class="flex items-center gap-3">
+                    <span><kbd class="font-mono bg-white dark:bg-[#252525] px-1 rounded border border-notion-border dark:border-[#333333]">↑↓</kbd> للتنقل</span>
+                    <span><kbd class="font-mono bg-white dark:bg-[#252525] px-1 rounded border border-notion-border dark:border-[#333333]">Enter</kbd> للاختيار</span>
+                </div>
+                <span><kbd class="font-mono bg-white dark:bg-[#252525] px-1 rounded border border-notion-border dark:border-[#333333]">Esc</kbd> للإغلاق</span>
             </div>
         </div>
     </div>
@@ -365,6 +377,7 @@
             searchQuery: '',
             searchResults: [],
             searchLoading: false,
+            selectedIndex: 0,
             darkMode: localStorage.getItem('darkMode') !== 'false',
 
             handleResize() {
@@ -380,11 +393,42 @@
                 localStorage.setItem('darkMode', this.darkMode);
             },
 
-            async performSearch() {
-                if (this.searchQuery.length < 2) {
-                    this.searchResults = [];
-                    return;
+            executePaletteItem(item) {
+                if (!item) return;
+                this.searchOpen = false;
+
+                if (item.type === 'action') {
+                    if (item.action === 'toggle_theme') {
+                        this.toggleDarkMode();
+                    } else if (item.action === 'create_page') {
+                        @if(isset($workspace))
+                            fetch('{{ route('pages.store', $workspace) }}', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content },
+                                body: JSON.stringify({ title: 'صفحة جديدة' })
+                            }).then(r => r.json()).then(d => {
+                                if (d.page) window.location.href = `/pages/${d.page.id}`;
+                            });
+                        @else
+                            window.location.href = '/dashboard';
+                        @endif
+                    } else if (item.action === 'open_templates') {
+                        @if(isset($workspace))
+                            window.location.href = '{{ route('templates.index', $workspace) }}';
+                        @else
+                            window.location.href = '/dashboard';
+                        @endif
+                    } else if (item.action === 'export_markdown') {
+                        @if(isset($page))
+                            window.location.href = '{{ route('pages.export.markdown', $page) }}';
+                        @endif
+                    }
+                } else if (item.url) {
+                    window.location.href = item.url;
                 }
+            },
+
+            async performSearch() {
                 this.searchLoading = true;
                 try {
                     const res = await fetch(`/search?q=${encodeURIComponent(this.searchQuery)}`, {
@@ -392,6 +436,7 @@
                     });
                     const data = await res.json();
                     this.searchResults = data.results ?? [];
+                    this.selectedIndex = 0;
                 } catch (e) {
                     this.searchResults = [];
                 } finally {

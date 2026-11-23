@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens; // إذا كنت تستخدم Sanctum للمصادقة
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
@@ -47,8 +47,8 @@ class User extends Authenticatable
     public function workspaces(): BelongsToMany
     {
         return $this->belongsToMany(Workspace::class, 'workspace_user')
-                    ->withPivot('role')
-                    ->withTimestamps();
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     /**
@@ -57,5 +57,21 @@ class User extends Authenticatable
     public function createdPages(): HasMany
     {
         return $this->hasMany(Page::class, 'created_by');
+    }
+
+    /**
+     * صلاحيات الصفحات المحددة للمستخدم
+     */
+    public function pagePermissions(): HasMany
+    {
+        return $this->hasMany(PagePermission::class);
+    }
+
+    /**
+     * تعليقات المستخدم
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(BlockComment::class);
     }
 }

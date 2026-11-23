@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Block extends Model
 {
@@ -11,7 +12,7 @@ class Block extends Model
         'page_id',
         'type',
         'content',
-        'position'
+        'position',
     ];
 
     protected $casts = [
@@ -22,5 +23,11 @@ class Block extends Model
     public function page(): BelongsTo
     {
         return $this->belongsTo(Page::class);
+    }
+
+    // التعليقات المترابطة على هذا البلوك
+    public function comments(): HasMany
+    {
+        return $this->hasMany(BlockComment::class)->whereNull('parent_id')->with(['user', 'replies.user'])->latest();
     }
 }

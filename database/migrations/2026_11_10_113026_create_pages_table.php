@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('pages', function (Blueprint $table) {
             $table->id();
             $table->foreignId('workspace_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('parent_id')->nullable()->constrained('pages')->cascadeOnDelete(); 
+            $table->foreignId('parent_id')->nullable()->constrained('pages')->cascadeOnDelete();
             $table->string('title')->default('Untitled');
             $table->text('icon')->nullable();
             $table->foreignId('created_by')->constrained('users');

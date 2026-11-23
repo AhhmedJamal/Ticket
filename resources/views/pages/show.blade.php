@@ -80,6 +80,23 @@
                     </div>
                 </div>
             </div>
+
+            {{-- شارة الصلاحية وزر المشاركة --}}
+            <div class="flex items-center gap-2">
+                @if(isset($userRole))
+                    <span class="text-[11px] px-2.5 py-1 rounded-lg border border-notion-border dark:border-[#333333] bg-notion-sidebar dark:bg-[#202020] text-notion-muted font-medium">
+                        {{ $userRole === 'editor' ? '✍️ محرر' : ($userRole === 'commenter' ? '💬 معلق' : '👁️ مشاهد') }}
+                    </span>
+                @endif
+                <button
+                    type="button"
+                    @click="openShareModal()"
+                    class="text-xs px-2.5 py-1 rounded-lg bg-notion-sidebar dark:bg-[#252525] hover:bg-notion-hover dark:hover:bg-[#2C2C2C] border border-notion-border dark:border-[#333333] text-notion-text dark:text-[#E3E3E0] transition-colors flex items-center gap-1.5 shadow-sm"
+                >
+                    <svg class="w-3.5 h-3.5 text-notion-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <span>المشاركة</span>
+                </button>
+            </div>
         </div>
 
         {{-- العنوان التفاعلي --}}
@@ -207,6 +224,16 @@
                             <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
                             <circle cx="9" cy="17" r="1.5"/><circle cx="15" cy="17" r="1.5"/>
                         </svg>
+                    </div>
+
+                    {{-- زر تعليقات البلوك --}}
+                    <div class="opacity-0 group-hover:opacity-100 absolute -left-14 top-2 transition-opacity z-10">
+                        <button type="button" @click="openComments({{ $block->id }})" title="التعليقات" class="flex items-center gap-0.5 text-notion-muted hover:text-blue-500 p-0.5 transition-colors">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                            @if($block->comments->count() > 0)
+                                <span class="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-1 rounded-full">{{ $block->comments->count() }}</span>
+                            @endif
+                        </button>
                     </div>
 
                     {{-- زر حذف البلوك --}}
@@ -391,8 +418,8 @@
         {{-- =================== قواعد البيانات المضمنة (Multi-View Databases) =================== --}}
         <div class="space-y-6">
             <template x-for="db in databases" :key="db.id">
-                <div class="rounded-xl border border-notion-border dark:border-[#2E2E2E] bg-notion-sidebar/50 dark:bg-[#202020] overflow-hidden">
-                    {{-- رأس قاعدة البيانات + مبدل العروض --}}
+                <div class="rounded-xl border border-notion-border dark:border-[#2E2E2E] bg-notion-sidebar/50 dark:bg-[#202020] overflow-hidden" x-data="{ showNewViewModal: false, newViewName: '', newViewType: 'table' }">
+                    {{-- رأس قاعدة البيانات + شريط العروض المحفوظة --}}
                     <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-notion-border dark:border-[#2E2E2E]">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="text-base">🗂️</span>
@@ -405,18 +432,67 @@
                             />
                         </div>
 
-                        <div class="flex items-center gap-1.5">
-                            {{-- View Switcher (Table / Board / Gallery) --}}
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            {{-- View Tabs (Multi-View System: Table, Board, List, Gallery) --}}
                             <div class="inline-flex items-center rounded-lg bg-white dark:bg-[#191919] border border-notion-border dark:border-[#2E2E2E] p-0.5 text-[11px]">
-                                <button type="button" @click="db.view = 'table'"
-                                    :class="db.view === 'table' ? 'bg-notion-hover dark:bg-[#2C2C2C] text-notion-text dark:text-[#E3E3E0] font-medium' : 'text-notion-muted dark:text-[#9B9A97]'"
-                                    class="px-2.5 py-1 rounded-md transition-colors">📊 جدول</button>
-                                <button type="button" @click="db.view = 'board'"
-                                    :class="db.view === 'board' ? 'bg-notion-hover dark:bg-[#2C2C2C] text-notion-text dark:text-[#E3E3E0] font-medium' : 'text-notion-muted dark:text-[#9B9A97]'"
-                                    class="px-2.5 py-1 rounded-md transition-colors">📋 لوحة</button>
-                                <button type="button" @click="db.view = 'gallery'"
-                                    :class="db.view === 'gallery' ? 'bg-notion-hover dark:bg-[#2C2C2C] text-notion-text dark:text-[#E3E3E0] font-medium' : 'text-notion-muted dark:text-[#9B9A97]'"
-                                    class="px-2.5 py-1 rounded-md transition-colors">🃏 معرض</button>
+                                <template x-for="v in (db.views || [])" :key="v.id || v.name">
+                                    <button
+                                        type="button"
+                                        @click="db.activeView = v.type"
+                                        :class="db.activeView === v.type ? 'bg-notion-hover dark:bg-[#2C2C2C] text-notion-text dark:text-[#E3E3E0] font-semibold shadow-xs' : 'text-notion-muted dark:text-[#9B9A97]'"
+                                        class="px-2.5 py-1 rounded-md transition-colors flex items-center gap-1"
+                                    >
+                                        <span x-text="v.type === 'table' ? '📊' : (v.type === 'board' ? '📋' : (v.type === 'list' ? '📝' : '🃏'))"></span>
+                                        <span x-text="v.name"></span>
+                                    </button>
+                                </template>
+                            </div>
+
+                            {{-- إضافة عرض مخصص جديد --}}
+                            <div class="relative">
+                                <button
+                                    type="button"
+                                    @click="showNewViewModal = !showNewViewModal"
+                                    class="text-[11px] px-2 py-1 rounded-lg border border-notion-border dark:border-[#2E2E2E] bg-white dark:bg-[#191919] text-notion-muted hover:text-notion-text dark:hover:text-[#E3E3E0] transition-colors"
+                                    title="إضافة عرض مخصص جديد"
+                                >
+                                    + عرض
+                                </button>
+                                <div
+                                    x-show="showNewViewModal"
+                                    x-cloak
+                                    @click.outside="showNewViewModal = false"
+                                    class="absolute left-0 mt-1 w-56 bg-white dark:bg-[#252525] border border-notion-border dark:border-[#333333] rounded-xl shadow-2xl p-3 z-30 space-y-2.5 text-xs"
+                                >
+                                    <div class="font-semibold text-notion-text dark:text-[#E3E3E0]">إضافة عرض جديد</div>
+                                    <input
+                                        type="text"
+                                        x-model="newViewName"
+                                        placeholder="اسم العرض (مثل: مهامي)..."
+                                        class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-notion-border dark:border-[#383838] bg-transparent text-notion-text dark:text-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <select
+                                        x-model="newViewType"
+                                        class="w-full text-xs px-2 py-1.5 rounded-lg border border-notion-border dark:border-[#383838] bg-white dark:bg-[#1E1E1E] text-notion-text dark:text-[#E3E3E0] focus:outline-none"
+                                    >
+                                        <option value="table">📊 جدول (Table)</option>
+                                        <option value="board">📋 لوحة كانبان (Board)</option>
+                                        <option value="list">📝 قائمة بسيطة (List)</option>
+                                        <option value="gallery">🃏 معرض بطاقات (Gallery)</option>
+                                    </select>
+                                    <div class="flex justify-end gap-1.5 pt-1">
+                                        <button
+                                            type="button"
+                                            @click="showNewViewModal = false"
+                                            class="px-2 py-1 rounded text-notion-muted hover:text-notion-text"
+                                        >إلغاء</button>
+                                        <button
+                                            type="button"
+                                            @click="if(newViewName.trim()) { addView(db, newViewName, newViewType); newViewName = ''; showNewViewModal = false; }"
+                                            class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"
+                                        >إضافة</button>
+                                    </div>
+                                </div>
                             </div>
 
                             <button type="button" @click="addDatabaseRow(db)" class="text-[11px] px-2.5 py-1 rounded-md bg-[#37352F] dark:bg-[#2EAADC] text-white hover:bg-black dark:hover:bg-[#2596C4] transition-colors">
@@ -428,39 +504,89 @@
                         </div>
                     </div>
 
+                    {{-- شريط الفلترة والبحث السريع (Filter & Search Bar) --}}
+                    <div class="px-4 py-2 border-b border-notion-border/60 dark:border-[#2A2A2A] bg-white/20 dark:bg-[#181818]/40 flex items-center justify-between gap-3 text-xs">
+                        <div class="flex items-center gap-2 flex-1 max-w-xs">
+                            <svg class="w-3.5 h-3.5 text-notion-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input
+                                type="text"
+                                x-model="db.searchQuery"
+                                placeholder="تصفية السجلات..."
+                                class="w-full bg-transparent border-0 p-0 text-xs text-notion-text dark:text-[#E3E3E0] placeholder:text-notion-muted/50 focus:outline-none focus:ring-0"
+                            />
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="text-[11px] text-notion-muted">الحالة:</span>
+                            <select
+                                x-model="db.filterStatus"
+                                class="bg-transparent text-xs text-notion-text dark:text-[#E3E3E0] focus:outline-none cursor-pointer border border-notion-border dark:border-[#333333] rounded px-1.5 py-0.5"
+                            >
+                                <option value="" class="dark:bg-[#252525]">الكل</option>
+                                <template x-for="opt in getBoardColumns(db)" :key="opt">
+                                    <option :value="opt" x-text="opt" class="dark:bg-[#252525]"></option>
+                                </template>
+                            </select>
+                            <button
+                                type="button"
+                                x-show="db.searchQuery || db.filterStatus"
+                                @click="db.searchQuery = ''; db.filterStatus = ''"
+                                class="text-[10px] text-blue-400 hover:underline px-1"
+                            >مسح الفلتر</button>
+                        </div>
+                    </div>
+
                     {{-- عرض 1: Table View --}}
-                    <div x-show="db.view === 'table'" class="overflow-x-auto">
+                    <div x-show="db.activeView === 'table'" class="overflow-x-auto">
                         <table class="w-full text-right text-xs border-collapse">
                             <thead>
-                                <tr class="border-b border-notion-border dark:border-[#2E2E2E] text-notion-muted dark:text-[#9B9A97] bg-white/40 dark:bg-[#191919]/40">
+                                <tr class="border-b border-notion-border dark:border-[#2E2E2E] text-notion-muted dark:text-[#9B9A97] bg-white/30 dark:bg-[#191919]/60">
                                     <template x-for="prop in db.properties" :key="prop.name">
-                                        <th class="px-3 py-2 font-medium border-l border-notion-border dark:border-[#2E2E2E] last:border-l-0" x-text="prop.name"></th>
+                                        <th class="px-3 py-2.5 font-semibold border-l border-notion-border dark:border-[#2E2E2E] last:border-l-0" x-text="prop.name"></th>
                                     </template>
-                                    <th class="w-10 px-2 py-2"></th>
+                                    <th class="w-10 px-2 py-2.5"></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <template x-for="row in db.rows" :key="row.id">
-                                    <tr class="border-b border-notion-border dark:border-[#2E2E2E] last:border-b-0 hover:bg-notion-hover/40 dark:hover:bg-[#2C2C2C]/40">
+                                <template x-for="row in getFilteredRows(db)" :key="row.id">
+                                    <tr class="border-b border-notion-border dark:border-[#2E2E2E] last:border-b-0 hover:bg-notion-hover/30 dark:hover:bg-[#1E1E1E]/80 group/row">
                                         <template x-for="prop in db.properties" :key="prop.name">
                                             <td class="px-3 py-2 border-l border-notion-border dark:border-[#2E2E2E] last:border-l-0">
                                                 <template x-if="prop.type === 'select'">
-                                                    <select
-                                                        :value="row.values[prop.name] || ''"
-                                                        @change="row.values[prop.name] = $event.target.value; updateDatabaseRow(row)"
-                                                        class="w-full bg-transparent text-xs text-notion-text dark:text-[#E3E3E0] focus:outline-none cursor-pointer"
-                                                    >
-                                                        <option value="" class="dark:bg-[#252525]">—</option>
-                                                        <template x-for="opt in (prop.options || [])" :key="opt">
-                                                            <option :value="opt" x-text="opt" class="dark:bg-[#252525]"></option>
-                                                        </template>
-                                                    </select>
+                                                    <div x-data="{ open: false }" class="relative">
+                                                        <button
+                                                            type="button"
+                                                            @click="open = !open"
+                                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors"
+                                                            :class="row.values[prop.name]
+                                                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                                                                : 'bg-notion-hover dark:bg-[#2C2C2C] text-notion-muted'"
+                                                        >
+                                                            <span x-text="row.values[prop.name] || '—'"></span>
+                                                            <svg class="w-2.5 h-2.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                                                        </button>
+                                                        <div x-show="open" @click.outside="open = false" x-cloak
+                                                             class="absolute z-20 mt-1 bg-white dark:bg-[#252525] border border-notion-border dark:border-[#333333] rounded-xl shadow-xl p-1.5 min-w-[120px]"
+                                                             :class="$el.getBoundingClientRect().left < 100 ? 'left-0' : 'right-0'">
+                                                            <button type="button" @click="row.values[prop.name] = ''; updateDatabaseRow(row); open = false"
+                                                                class="w-full text-right px-2.5 py-1.5 rounded-lg text-[11px] text-notion-muted hover:bg-notion-hover dark:hover:bg-[#2C2C2C] transition-colors">— بلا حالة</button>
+                                                            <template x-for="opt in (prop.options || [])" :key="opt">
+                                                                <button type="button"
+                                                                    @click="row.values[prop.name] = opt; updateDatabaseRow(row); open = false"
+                                                                    class="w-full text-right px-2.5 py-1.5 rounded-lg text-[11px] text-notion-text dark:text-[#E3E3E0] hover:bg-notion-hover dark:hover:bg-[#2C2C2C] transition-colors flex items-center gap-2"
+                                                                    :class="row.values[prop.name] === opt ? 'font-semibold' : ''"
+                                                                >
+                                                                    <span class="w-2 h-2 rounded-full bg-blue-400 dark:bg-blue-500 shrink-0" x-show="row.values[prop.name] === opt"></span>
+                                                                    <span x-text="opt"></span>
+                                                                </button>
+                                                            </template>
+                                                        </div>
+                                                    </div>
                                                 </template>
                                                 <template x-if="prop.type === 'date'">
                                                     <input type="date"
                                                         :value="row.values[prop.name] || ''"
                                                         @change="row.values[prop.name] = $event.target.value; updateDatabaseRow(row)"
-                                                        class="w-full bg-transparent text-xs text-notion-text dark:text-[#E3E3E0] focus:outline-none"/>
+                                                        class="bg-transparent text-xs text-notion-text dark:text-[#E3E3E0] focus:outline-none"/>
                                                 </template>
                                                 <template x-if="prop.type !== 'select' && prop.type !== 'date'">
                                                     <input type="text"
@@ -473,14 +599,14 @@
                                             </td>
                                         </template>
                                         <td class="px-2 py-2 text-center">
-                                            <button type="button" @click="deleteDatabaseRow(db, row)" class="text-notion-muted hover:text-red-500">✕</button>
+                                            <button type="button" @click="deleteDatabaseRow(db, row)" class="opacity-0 group-hover/row:opacity-100 text-notion-muted hover:text-red-500 transition-opacity">✕</button>
                                         </td>
                                     </tr>
                                 </template>
-                                <template x-if="db.rows.length === 0">
+                                <template x-if="getFilteredRows(db).length === 0">
                                     <tr>
-                                        <td :colspan="db.properties.length + 1" class="px-4 py-6 text-center text-xs text-notion-muted dark:text-[#9B9A97]">
-                                            لا توجد سجلات بعد. اضغط "+ سجل" لإضافة أول عنصر.
+                                        <td :colspan="db.properties.length + 1" class="px-4 py-8 text-center text-xs text-notion-muted dark:text-[#9B9A97]">
+                                            لا توجد سجلات مطابقة للفلتر.
                                         </td>
                                     </tr>
                                 </template>
@@ -489,61 +615,128 @@
                     </div>
 
                     {{-- عرض 2: Kanban Board View --}}
-                    <div x-show="db.view === 'board'" class="p-4 sm:p-5 overflow-x-auto">
-                        @php /* Grouped dynamically in Alpine by first select property */ @endphp
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div x-show="db.activeView === 'board'" class="p-4 sm:p-5 overflow-x-auto">
+                        <div class="flex gap-4 min-w-0" style="align-items: flex-start;">
                             <template x-for="col in getBoardColumns(db)" :key="col">
                                 <div
                                     @dragover.prevent="if (draggingDbId === db.id) dragOverCol = col"
                                     @dragleave="if (dragOverCol === col && !$el.contains($event.relatedTarget)) dragOverCol = null"
                                     @drop.prevent="moveBoardRow(db, col)"
-                                    :class="dragOverCol === col && draggingDbId === db.id ? 'ring-2 ring-notion-accent/70 bg-notion-hover/50 dark:bg-[#242424]' : 'bg-white/60 dark:bg-[#191919]'"
-                                    class="rounded-xl border border-notion-border dark:border-[#2E2E2E] p-4 space-y-3 transition-all min-h-[180px]"
+                                    :class="dragOverCol === col && draggingDbId === db.id ? 'ring-2 ring-blue-400/60 bg-blue-50/40 dark:bg-blue-900/10' : 'bg-notion-hover/30 dark:bg-[#1A1A1A]'"
+                                    class="rounded-2xl border border-notion-border dark:border-[#2A2A2A] p-3 space-y-2.5 transition-all flex-1 min-w-[220px] max-w-xs"
+                                    style="min-height:200px;"
                                 >
-                                    <div class="flex items-center justify-between text-xs font-semibold text-notion-text dark:text-[#E3E3E0]">
-                                        <span x-text="col"></span>
-                                        <span class="text-[11px] px-2 py-0.5 rounded-full bg-notion-sidebar dark:bg-[#252525] text-notion-muted dark:text-[#9B9A97]" x-text="getBoardRows(db, col).length"></span>
+                                    {{-- عنوان العمود --}}
+                                    <div class="flex items-center justify-between px-1 pb-1">
+                                        <span class="text-[11px] font-semibold uppercase tracking-wide text-notion-muted dark:text-[#9B9A97]" x-text="col"></span>
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-white dark:bg-[#252525] border border-notion-border dark:border-[#333333] text-notion-muted" x-text="getBoardRows(db, col).length"></span>
                                     </div>
-                                    <div class="space-y-3">
+
+                                    {{-- الكروت --}}
+                                    <div class="space-y-2">
                                         <template x-for="row in getBoardRows(db, col)" :key="row.id">
                                             <div
                                                 draggable="true"
                                                 @dragstart="startBoardDrag($event, db, row)"
                                                 @dragend="draggingRowId = null; draggingDbId = null; dragOverCol = null"
-                                                :class="draggingRowId === row.id ? 'opacity-40 scale-[0.98]' : ''"
-                                                class="p-3.5 sm:p-4 rounded-xl bg-notion-sidebar dark:bg-[#252525] border border-notion-border dark:border-[#333333] space-y-3 cursor-grab active:cursor-grabbing transition-all shadow-sm"
+                                                :class="draggingRowId === row.id ? 'opacity-40 scale-95' : 'hover:shadow-md hover:-translate-y-0.5'"
+                                                class="group/card bg-white dark:bg-[#252525] rounded-xl border border-notion-border dark:border-[#333333] p-3.5 cursor-grab active:cursor-grabbing transition-all shadow-sm"
                                             >
-                                                <div class="flex items-start gap-2">
+                                                {{-- العنوان --}}
+                                                <div class="flex items-start gap-1.5 mb-2.5">
                                                     <textarea
-                                                        rows="2"
+                                                        rows="1"
                                                         :value="row.values[db.properties[0]?.name] || ''"
                                                         x-init="$nextTick(() => { $el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'; })"
                                                         @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"
                                                         @blur="row.values[db.properties[0]?.name] = $event.target.value; updateDatabaseRow(row)"
+                                                        @mousedown.stop
                                                         placeholder="بدون عنوان..."
-                                                        class="flex-1 min-w-0 bg-transparent text-sm font-medium leading-relaxed text-notion-text dark:text-[#E3E3E0] placeholder:text-notion-muted/60 focus:outline-none focus:ring-1 focus:ring-notion-accent rounded-lg px-1.5 py-1 resize-none overflow-hidden"
+                                                        class="flex-1 min-w-0 bg-transparent text-[13px] font-semibold leading-snug text-notion-text dark:text-[#E8E8E5] placeholder:text-notion-muted/50 focus:outline-none resize-none overflow-hidden"
                                                     ></textarea>
-                                                    <button type="button" @click="deleteDatabaseRow(db, row)" class="text-xs text-notion-muted hover:text-red-500 shrink-0 p-1">✕</button>
+                                                    <button type="button" @click="deleteDatabaseRow(db, row)" class="opacity-0 group-hover/card:opacity-100 text-[10px] text-notion-muted hover:text-red-500 shrink-0 p-0.5 transition-opacity">✕</button>
                                                 </div>
-                                                <div class="flex items-center justify-between gap-2 pt-2 border-t border-notion-border/60 dark:border-[#333333] text-[11px] text-notion-muted dark:text-[#9B9A97]">
-                                                    <input
-                                                        type="date"
-                                                        :value="row.values['التاريخ'] || ''"
-                                                        @change="row.values['التاريخ'] = $event.target.value; updateDatabaseRow(row)"
-                                                        class="bg-transparent text-[11px] text-notion-muted dark:text-[#9B9A97] focus:outline-none min-w-0"
-                                                    />
+
+                                                {{-- شارة الحالة والتاريخ --}}
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <template x-if="row.values['التاريخ']">
+                                                        <span class="inline-flex items-center gap-1 text-[10px] text-notion-muted dark:text-[#787774]">
+                                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                                            <span x-text="row.values['التاريخ']"></span>
+                                                        </span>
+                                                    </template>
+                                                    <template x-if="!row.values['التاريخ']">
+                                                        <input
+                                                            type="date"
+                                                            :value="row.values['التاريخ'] || ''"
+                                                            @mousedown.stop
+                                                            @change="row.values['التاريخ'] = $event.target.value; updateDatabaseRow(row)"
+                                                            class="bg-transparent text-[10px] text-notion-muted dark:text-[#787774] focus:outline-none opacity-0 group-hover/card:opacity-70 hover:!opacity-100 transition-opacity w-28"
+                                                            title="أضف تاريخ"
+                                                        />
+                                                    </template>
                                                 </div>
                                             </div>
                                         </template>
                                     </div>
+
+                                    {{-- زر إضافة بطاقة --}}
+                                    <button
+                                        type="button"
+                                        @click="addDatabaseRow(db)"
+                                        class="w-full text-right text-[11px] text-notion-muted dark:text-[#787774] hover:text-notion-text dark:hover:text-[#E3E3E0] hover:bg-white/60 dark:hover:bg-[#2A2A2A] px-3 py-1.5 rounded-lg transition-colors"
+                                    >+ إضافة</button>
                                 </div>
                             </template>
                         </div>
                     </div>
 
-                    {{-- عرض 3: Gallery View (2-Column Card Grid) --}}
-                    <div x-show="db.view === 'gallery'" class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <template x-for="row in db.rows" :key="row.id">
+                    {{-- عرض 3: List View (عرض القائمة البسيطة الجديد) --}}
+                    <div x-show="db.activeView === 'list'" class="divide-y divide-notion-border/60 dark:divide-[#2E2E2E] bg-white/20 dark:bg-transparent">
+                        <template x-for="row in getFilteredRows(db)" :key="row.id">
+                            <div class="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-notion-hover/30 dark:hover:bg-[#252525]/40 transition-colors group/lrow">
+                                <div class="flex items-center gap-3 min-w-0 flex-1">
+                                    <span class="text-xs text-notion-muted">📄</span>
+                                    <input
+                                        type="text"
+                                        :value="row.values[db.properties[0]?.name] || ''"
+                                        @blur="row.values[db.properties[0]?.name] = $event.target.value; updateDatabaseRow(row)"
+                                        @keydown.enter="$event.target.blur()"
+                                        placeholder="عنصر في القائمة..."
+                                        class="flex-1 min-w-0 bg-transparent text-xs font-medium text-notion-text dark:text-[#E3E3E0] placeholder:text-notion-muted/50 focus:outline-none"
+                                    />
+                                </div>
+                                <div class="flex items-center gap-3 shrink-0">
+                                    <template x-if="row.values['الحالة']">
+                                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium" x-text="row.values['الحالة']"></span>
+                                    </template>
+                                    <template x-if="row.values['التاريخ']">
+                                        <span class="text-[11px] text-notion-muted" x-text="row.values['التاريخ']"></span>
+                                    </template>
+                                    <button type="button" @click="deleteDatabaseRow(db, row)" class="opacity-0 group-hover/lrow:opacity-100 text-xs text-notion-muted hover:text-red-500 transition-opacity p-1">✕</button>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="getFilteredRows(db).length === 0">
+                            <div class="px-4 py-6 text-center text-xs text-notion-muted">
+                                لا توجد عناصر مطابقة.
+                            </div>
+                        </template>
+                        <div class="px-4 py-2">
+                            <button
+                                type="button"
+                                @click="addDatabaseRow(db)"
+                                class="text-xs text-notion-muted hover:text-notion-text dark:hover:text-[#E3E3E0] py-1 transition-colors flex items-center gap-1.5"
+                            >
+                                <span>+</span>
+                                <span>عنصر جديد</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- عرض 4: Gallery View (2-Column Card Grid) --}}
+                    <div x-show="db.activeView === 'gallery'" class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <template x-for="row in getFilteredRows(db)" :key="row.id">
                             <div class="p-3.5 rounded-xl bg-white dark:bg-[#191919] border border-notion-border dark:border-[#2E2E2E] hover:border-notion-muted/50 transition-colors space-y-2.5">
                                 <div class="flex items-center justify-between gap-2">
                                     <input
@@ -595,9 +788,9 @@
                                 </div>
                             </div>
                         </template>
-                        <template x-if="db.rows.length === 0">
+                        <template x-if="getFilteredRows(db).length === 0">
                             <div class="sm:col-span-2 px-4 py-6 text-center text-xs text-notion-muted dark:text-[#9B9A97]">
-                                لا توجد سجلات بعد. اضغط "+ سجل" لإضافة أول عنصر.
+                                لا توجد سجلات مطابقة للفلتر.
                             </div>
                         </template>
                     </div>
@@ -612,10 +805,12 @@
                 blockType: 'paragraph',
                 blockLabel: '¶ نص عادي',
                 blockText: '',
+                search: '',
                 selectBlock(type, label) {
                     this.blockType = type;
                     this.blockLabel = label;
                     this.slashOpen = false;
+                    this.search = '';
                     if (this.blockText.trim() === '/') {
                         this.blockText = '';
                     }
@@ -631,7 +826,7 @@
 
                 <button
                     type="button"
-                    @click="slashOpen = !slashOpen"
+                    @click="slashOpen = !slashOpen; $nextTick(() => slashOpen && $refs.slashSearch?.focus())"
                     class="w-6 h-6 rounded flex items-center justify-center text-xs text-notion-muted dark:text-[#7F7F7F] hover:text-notion-text dark:hover:text-[#E3E3E0] hover:bg-notion-hover dark:hover:bg-[#2C2C2C] transition-colors shrink-0"
                     :title="blockLabel"
                 >
@@ -641,7 +836,7 @@
                 <input
                     x-ref="blockInput"
                     x-model="blockText"
-                    @input="if (blockText === '/') slashOpen = true"
+                    @input="if (blockText === '/') { slashOpen = true; $nextTick(() => $refs.slashSearch?.focus()); }"
                     type="text"
                     name="text"
                     placeholder="اكتب شيئاً، أو اكتب '/' للأوامر..."
@@ -653,39 +848,46 @@
             <div
                 x-show="slashOpen"
                 x-cloak
-                @click.outside="slashOpen = false"
-                @keydown.escape.window="slashOpen = false"
+                @click.outside="slashOpen = false; search = ''"
+                @keydown.escape.window="slashOpen = false; search = ''"
                 x-transition:enter="transition ease-out duration-150"
                 x-transition:enter-start="opacity-0 -translate-y-1"
                 x-transition:enter-end="opacity-100 translate-y-0"
-                class="mt-2 mb-6 w-full bg-white dark:bg-[#222222] border border-notion-border dark:border-[#343434] rounded-2xl shadow-xl p-5 sm:p-6 space-y-4"
+                class="mt-2 mb-6 w-full bg-white dark:bg-[#1E1E1E] border border-notion-border dark:border-[#303030] rounded-2xl shadow-2xl overflow-hidden"
             >
-                <div class="flex items-center justify-between px-1 pb-2.5 border-b border-notion-border dark:border-[#303030]">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-semibold text-notion-text dark:text-[#E3E3E0]">إدراج بلوك جديد</span>
-                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] text-notion-muted">/</span>
-                    </div>
-                    <button type="button" @click="slashOpen = false" class="text-[11px] text-notion-muted hover:text-notion-text dark:hover:text-[#E3E3E0] px-1.5 py-0.5 rounded hover:bg-notion-hover dark:hover:bg-[#2E2E2E]">Esc</button>
+                {{-- Header with search --}}
+                <div class="flex items-center gap-2 px-4 py-3 border-b border-notion-border dark:border-[#2A2A2A] bg-notion-sidebar/40 dark:bg-[#252525]/60">
+                    <svg class="w-3.5 h-3.5 text-notion-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input
+                        x-ref="slashSearch"
+                        x-model="search"
+                        type="text"
+                        placeholder="ابحث عن نوع البلوك..."
+                        class="flex-1 text-xs bg-transparent border-0 p-0 focus:ring-0 focus:outline-none text-notion-text dark:text-[#E3E3E0] placeholder:text-notion-muted/50"
+                    />
+                    <button type="button" @click="slashOpen = false; search = ''" class="text-[11px] px-1.5 py-0.5 rounded bg-notion-hover dark:bg-[#2E2E2E] text-notion-muted hover:text-notion-text dark:hover:text-[#E3E3E0]">Esc</button>
                 </div>
 
+                {{-- Body --}}
+                <div class="p-4 sm:p-5">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <div class="px-1.5 pb-1.5 text-[11px] font-semibold text-notion-muted dark:text-[#9B9A97]">نصوص وعناوين</div>
                         <div class="grid grid-cols-2 gap-1.5">
-                            <button type="button" @click="selectBlock('paragraph', '¶ نص عادي')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center font-bold text-xs shrink-0">¶</span>
+                            <button type="button" @click="selectBlock('paragraph', '¶ نص عادي')" x-show="!search || 'نص عادي فقرة'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center font-bold text-xs shrink-0">¶</span>
                                 <div class="min-w-0"><div class="text-xs font-medium truncate">نص عادي</div><div class="text-[10px] text-notion-muted truncate">فقرة بسيطة</div></div>
                             </button>
-                            <button type="button" @click="selectBlock('heading_1', 'H1 عنوان كبير')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center font-bold text-xs shrink-0">H1</span>
+                            <button type="button" @click="selectBlock('heading_1', 'H1 عنوان كبير')" x-show="!search || 'عنوان رئيسي كبير h1'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center font-bold text-xs shrink-0">H1</span>
                                 <div class="min-w-0"><div class="text-xs font-medium truncate">عنوان رئيسي</div><div class="text-[10px] text-notion-muted truncate">قسم كبير</div></div>
                             </button>
-                            <button type="button" @click="selectBlock('heading_2', 'H2 عنوان متوسط')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center font-bold text-xs shrink-0">H2</span>
+                            <button type="button" @click="selectBlock('heading_2', 'H2 عنوان متوسط')" x-show="!search || 'عنوان متوسط h2'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center font-bold text-xs shrink-0">H2</span>
                                 <div class="min-w-0"><div class="text-xs font-medium truncate">عنوان متوسط</div><div class="text-[10px] text-notion-muted truncate">فرعي متوسط</div></div>
                             </button>
-                            <button type="button" @click="selectBlock('heading_3', 'H3 عنوان صغير')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center font-bold text-xs shrink-0">H3</span>
+                            <button type="button" @click="selectBlock('heading_3', 'H3 عنوان صغير')" x-show="!search || 'عنوان صغير h3'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center font-bold text-xs shrink-0">H3</span>
                                 <div class="min-w-0"><div class="text-xs font-medium truncate">عنوان صغير</div><div class="text-[10px] text-notion-muted truncate">فرعي صغير</div></div>
                             </button>
                         </div>
@@ -694,80 +896,81 @@
                     <div>
                         <div class="px-1.5 pb-1.5 text-[11px] font-semibold text-notion-muted dark:text-[#9B9A97]">قوائم وتنظيم</div>
                         <div class="grid grid-cols-2 gap-1.5">
-                            <button type="button" @click="selectBlock('todo', '☑ قائمة مهام')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center text-sm shrink-0">☑</span>
+                            <button type="button" @click="selectBlock('todo', '☑ قائمة مهام')" x-show="!search || 'قائمة مهام todo'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center text-sm shrink-0">☑</span>
                                 <div class="min-w-0"><div class="text-xs font-medium truncate">قائمة مهام</div><div class="text-[10px] text-notion-muted truncate">مربع اختيار</div></div>
                             </button>
-                            <button type="button" @click="selectBlock('bulleted_list', '• قائمة نقطية')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center text-base shrink-0">•</span>
+                            <button type="button" @click="selectBlock('bulleted_list', '• قائمة نقطية')" x-show="!search || 'قائمة نقطية bullet'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center text-base shrink-0">•</span>
                                 <div class="min-w-0"><div class="text-xs font-medium truncate">قائمة نقطية</div><div class="text-[10px] text-notion-muted truncate">نقاط مرتبة</div></div>
                             </button>
-                            <button type="button" @click="selectBlock('numbered_list', '1. قائمة مرقمة')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center font-mono text-xs shrink-0">1.</span>
+                            <button type="button" @click="selectBlock('numbered_list', '1. قائمة مرقمة')" x-show="!search || 'قائمة مرقمة رقمية'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center font-mono text-xs shrink-0">1.</span>
                                 <div class="min-w-0"><div class="text-xs font-medium truncate">قائمة مرقمة</div><div class="text-[10px] text-notion-muted truncate">تعداد رقمي</div></div>
                             </button>
-                            <button type="button" @click="selectBlock('toggle', '▶ قائمة مطوية')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center text-xs shrink-0">▶</span>
-                                <div class="min-w-0"><div class="text-xs font-medium truncate">قائمة مطوية</div><div class="text-[10px] text-notion-muted truncate">إظهار وإخفاء</div></div>
+                            <button type="button" @click="selectBlock('toggle', '▶ قائمة مطوية')" x-show="!search || 'مطوية toggle'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center text-xs shrink-0">▶</span>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">Toggle قابل للطي</div><div class="text-[10px] text-notion-muted truncate">إظهار وإخفاء</div></div>
                             </button>
                         </div>
                     </div>
 
-                    <div class="border-t border-notion-border dark:border-[#303030] pt-3">
+                    <div class="border-t border-notion-border dark:border-[#2A2A2A] pt-3">
                         <div class="px-1.5 pb-1.5 text-[11px] font-semibold text-notion-muted dark:text-[#9B9A97]">وسائط وكود</div>
                         <div class="grid grid-cols-2 gap-1.5">
-                            <button type="button" @click="selectBlock('callout', '💡 تنبيه')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center shrink-0">
+                            <button type="button" @click="selectBlock('callout', '💡 تنبيه')" x-show="!search || 'تنبيه callout'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center shrink-0">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                                 </span>
-                                <div class="min-w-0"><div class="text-xs font-medium truncate">تنبيه</div><div class="text-[10px] text-notion-muted truncate">ملاحظة مهمة</div></div>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">تنبيه (Callout)</div><div class="text-[10px] text-notion-muted truncate">ملاحظة مهمة</div></div>
                             </button>
-                            <button type="button" @click="selectBlock('quote', '❝ اقتباس')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center text-sm shrink-0">❝</span>
+                            <button type="button" @click="selectBlock('quote', '❝ اقتباس')" x-show="!search || 'اقتباس quote'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center text-sm shrink-0">❝</span>
                                 <div class="min-w-0"><div class="text-xs font-medium truncate">اقتباس</div><div class="text-[10px] text-notion-muted truncate">نص مقتبس</div></div>
                             </button>
-                            <button type="button" @click="selectBlock('code', '💻 كود برمجي')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center shrink-0">
+                            <button type="button" @click="selectBlock('code', '💻 كود برمجي')" x-show="!search || 'كود code برمجي'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center shrink-0">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
                                 </span>
                                 <div class="min-w-0"><div class="text-xs font-medium truncate">كود برمجي</div><div class="text-[10px] text-notion-muted truncate">صندوق كود</div></div>
                             </button>
-                            <button type="button" @click="selectBlock('divider', '― فاصل')" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center text-sm shrink-0">―</span>
+                            <button type="button" @click="selectBlock('divider', '― فاصل')" x-show="!search || 'فاصل divider'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center text-sm shrink-0">―</span>
                                 <div class="min-w-0"><div class="text-xs font-medium truncate">خط فاصل</div><div class="text-[10px] text-notion-muted truncate">فصل الأقسام</div></div>
                             </button>
                         </div>
                     </div>
 
-                    <div class="border-t border-notion-border dark:border-[#303030] pt-3">
+                    <div class="border-t border-notion-border dark:border-[#2A2A2A] pt-3">
                         <div class="px-1.5 pb-1.5 text-[11px] font-semibold text-notion-muted dark:text-[#9B9A97]">صفحات وبيانات</div>
                         <div class="grid grid-cols-2 gap-1.5">
                             <button
                                 type="button"
-                                @click="slashOpen = false; if (blockText.trim() === '/') blockText = ''; createDatabase()"
+                                @click="slashOpen = false; search = ''; if (blockText.trim() === '/') blockText = ''; createDatabase()"
+                                x-show="!search || 'قاعدة بيانات'.includes(search)"
                                 class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]"
                             >
-                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center shrink-0">
+                                <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center shrink-0">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
                                 </span>
-                                <div class="min-w-0"><div class="text-xs font-medium truncate">قاعدة بيانات</div><div class="text-[10px] text-notion-muted truncate">جدول مدمج</div></div>
+                                <div class="min-w-0"><div class="text-xs font-medium truncate">قاعدة بيانات</div><div class="text-[10px] text-notion-muted truncate">جدول أو لوحة مدمجة</div></div>
                             </button>
                             <form action="{{ route('pages.store', $workspace) }}" method="POST" class="contents">
                                 @csrf
                                 <input type="hidden" name="parent_id" value="{{ $page->id }}">
-                                <button type="submit" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
-                                    <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#191919] border border-notion-border dark:border-[#333333] flex items-center justify-center shrink-0">
+                                <button type="submit" x-show="!search || 'صفحة فرعية'.includes(search)" class="w-full text-right flex items-center gap-2.5 p-2 rounded-xl hover:bg-notion-hover dark:hover:bg-[#2D2D2D] transition-colors text-notion-text dark:text-[#E3E3E0]">
+                                    <span class="w-8 h-8 rounded-lg bg-notion-sidebar dark:bg-[#282828] border border-notion-border dark:border-[#3A3A3A] flex items-center justify-center shrink-0">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                     </span>
-                                    <div class="min-w-0"><div class="text-xs font-medium truncate">صفحة فرعية</div><div class="text-[10px] text-notion-muted truncate">صفحة بالداخل</div></div>
+                                    <div class="min-w-0"><div class="text-xs font-medium truncate">صفحة فرعية</div><div class="text-[10px] text-notion-muted truncate">إنشاء صفحة بالداخل</div></div>
                                 </button>
                             </form>
                         </div>
                     </div>
                 </div>
+                </div>
             </div>
         </div>
-
         {{-- =================== Backlinks =================== --}}
         @if($backlinks->count() > 0)
             <div class="pt-4 border-t border-notion-border dark:border-[#3a3a3a]">
@@ -882,10 +1085,191 @@
         </div>
     </aside>
 
+    {{-- ================= درج تعليقات البلوك (Block Comments Drawer) ================= --}}
+    <div x-show="commentDrawerOpen" x-cloak class="fixed inset-0 z-50 overflow-hidden flex justify-end">
+        <div class="fixed inset-0 bg-black/40 backdrop-blur-[1px]" @click="commentDrawerOpen = false"></div>
+        <div class="relative w-full max-w-sm bg-white dark:bg-[#202020] border-r border-notion-border dark:border-[#2E2E2E] h-full shadow-2xl flex flex-col z-10"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="translate-x-full"
+             x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="translate-x-0"
+             x-transition:leave-end="translate-x-full">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-notion-border dark:border-[#2E2E2E] bg-notion-sidebar/40 dark:bg-[#1E1E1E]">
+                <div class="flex items-center gap-2 text-xs font-semibold text-notion-text dark:text-[#E3E3E0]">
+                    <span>💬</span>
+                    <span>تعليقات البلوك</span>
+                </div>
+                <button @click="commentDrawerOpen = false" class="text-xs text-notion-muted hover:text-notion-text dark:hover:text-[#E3E3E0] px-1">✕</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div x-show="commentsLoading" class="text-center py-8 text-xs text-notion-muted">
+                    <div class="inline-block w-4 h-4 border-2 border-notion-muted border-t-transparent rounded-full animate-spin"></div>
+                </div>
+
+                <template x-if="!commentsLoading && blockComments.length === 0">
+                    <div class="text-center py-12 text-xs text-notion-muted dark:text-[#787774]">
+                        لا توجد تعليقات بعد. أضف أول تعليق أدناه.
+                    </div>
+                </template>
+
+                <template x-for="comment in blockComments" :key="comment.id">
+                    <div class="p-3 rounded-xl border border-notion-border dark:border-[#2D2D2D] bg-notion-sidebar/30 dark:bg-[#252525] space-y-2.5"
+                         :class="comment.is_resolved ? 'opacity-60' : ''">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-bold text-[10px] flex items-center justify-center" x-text="comment.user?.name ? comment.user.name.charAt(0) : 'م'"></span>
+                                <span class="text-xs font-medium text-notion-text dark:text-[#E3E3E0]" x-text="comment.user?.name || 'مستخدم'"></span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" @click="toggleResolveComment(comment)"
+                                    :class="comment.is_resolved ? 'text-green-500 font-bold' : 'text-notion-muted hover:text-green-500'"
+                                    class="text-[10px] px-1.5 py-0.5 rounded border border-notion-border dark:border-[#383838]"
+                                    :title="comment.is_resolved ? 'إعادة الفتح' : 'تعيين كمحلول'">
+                                    <span x-text="comment.is_resolved ? '✓ محلول' : 'حل'"></span>
+                                </button>
+                                <button type="button" @click="deleteComment(comment)" class="text-[10px] text-notion-muted hover:text-red-500 p-0.5">✕</button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-notion-text dark:text-[#E3E3E0] leading-relaxed whitespace-pre-wrap" x-text="comment.content"></p>
+
+                        {{-- الردود (Replies) --}}
+                        <div x-show="comment.replies && comment.replies.length > 0" class="mr-3 border-r-2 border-notion-border dark:border-[#333333] pr-2.5 space-y-2 mt-2 pt-1">
+                            <template x-for="reply in (comment.replies || [])" :key="reply.id">
+                                <div class="text-[11px] space-y-1">
+                                    <div class="flex items-center justify-between text-notion-muted">
+                                        <span class="font-medium text-notion-text dark:text-[#E3E3E0]" x-text="reply.user?.name || 'مستخدم'"></span>
+                                        <button type="button" @click="deleteComment(reply)" class="hover:text-red-500 text-[10px]">✕</button>
+                                    </div>
+                                    <p class="text-notion-text dark:text-[#C5C5C2]" x-text="reply.content"></p>
+                                </div>
+                            </template>
+                        </div>
+
+                        {{-- زر وكتابة الرد --}}
+                        <div class="pt-1.5 flex items-center gap-1.5">
+                            <input
+                                type="text"
+                                x-model="replyText[comment.id]"
+                                @keydown.enter.prevent="addReply(comment)"
+                                placeholder="اكتب رداً..."
+                                class="flex-1 text-[11px] px-2 py-1 rounded bg-transparent border border-notion-border dark:border-[#353535] text-notion-text dark:text-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                            <button
+                                type="button"
+                                @click="addReply(comment)"
+                                class="text-[10px] px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium transition-colors"
+                            >رد</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            {{-- نموذج إضافة تعليق جديد --}}
+            <div class="p-3 border-t border-notion-border dark:border-[#2E2E2E] bg-notion-sidebar/40 dark:bg-[#1E1E1E]">
+                <textarea
+                    rows="2"
+                    x-model="newCommentText"
+                    placeholder="اكتب تعليقاً على هذا البلوك..."
+                    class="w-full text-xs p-2 rounded-lg bg-white dark:bg-[#252525] border border-notion-border dark:border-[#353535] text-notion-text dark:text-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                ></textarea>
+                <div class="flex justify-end mt-2">
+                    <button
+                        type="button"
+                        @click="addComment()"
+                        class="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors shadow-sm"
+                    >إرسال التعليق</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ================= نافذة مشاركة الصفحة والصلاحيات (Share & Permissions Modal) ================= --}}
+    <div x-show="shareModalOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm" @click="shareModalOpen = false"></div>
+        <div class="relative w-full max-w-md bg-white dark:bg-[#222222] border border-notion-border dark:border-[#333333] rounded-2xl shadow-2xl p-5 space-y-4 z-10">
+            <div class="flex items-center justify-between border-b border-notion-border dark:border-[#303030] pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-base">👥</span>
+                    <h3 class="text-sm font-semibold text-notion-text dark:text-[#E3E3E0]">مشاركة الصفحة وإدارة الصلاحيات</h3>
+                </div>
+                <button @click="shareModalOpen = false" class="text-xs text-notion-muted hover:text-notion-text">✕</button>
+            </div>
+
+            {{-- نموذج إضافة مستخدم --}}
+            <div class="space-y-2">
+                <div class="text-xs font-medium text-notion-muted dark:text-[#9B9A97]">إضافة عضو أو تعديل صلاحيته:</div>
+                <div class="flex items-center gap-2">
+                    <input
+                        type="email"
+                        x-model="newPermEmail"
+                        placeholder="بريد المستخدم الإلكتروني..."
+                        class="flex-1 text-xs px-3 py-2 rounded-xl border border-notion-border dark:border-[#353535] bg-transparent text-notion-text dark:text-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <select
+                        x-model="newPermRole"
+                        class="text-xs px-2.5 py-2 rounded-xl border border-notion-border dark:border-[#353535] bg-white dark:bg-[#1E1E1E] text-notion-text dark:text-[#E3E3E0] focus:outline-none"
+                    >
+                        <option value="editor">محرر (Editor)</option>
+                        <option value="commenter">معلق (Commenter)</option>
+                        <option value="viewer">مشاهد (Viewer)</option>
+                    </select>
+                    <button
+                        type="button"
+                        @click="addPermission()"
+                        class="text-xs px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium transition-colors shrink-0"
+                    >حفظ</button>
+                </div>
+            </div>
+
+            {{-- قائمة الصلاحيات الحالية --}}
+            <div class="space-y-2 pt-2">
+                <div class="text-xs font-semibold text-notion-muted dark:text-[#9B9A97]">المخولون بالوصول:</div>
+                <div class="max-h-52 overflow-y-auto divide-y divide-notion-border/60 dark:divide-[#2E2E2E]">
+                    <div class="flex items-center justify-between py-2 text-xs">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 font-bold text-[10px] flex items-center justify-center">👑</span>
+                            <div>
+                                <div class="font-medium text-notion-text dark:text-[#E3E3E0]">مالك مساحة العمل</div>
+                                <div class="text-[10px] text-notion-muted">{{ $workspace->owner->email ?? '' }}</div>
+                            </div>
+                        </div>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-notion-sidebar dark:bg-[#2C2C2C] text-notion-muted">محرر كامل</span>
+                    </div>
+
+                    <template x-for="perm in permissions" :key="perm.id">
+                        <div class="flex items-center justify-between py-2 text-xs">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-bold text-[10px] flex items-center justify-center" x-text="perm.user?.name ? perm.user.name.charAt(0) : 'م'"></span>
+                                <div>
+                                    <div class="font-medium text-notion-text dark:text-[#E3E3E0]" x-text="perm.user?.name || 'مستخدم'"></div>
+                                    <div class="text-[10px] text-notion-muted" x-text="perm.user?.email"></div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-medium" x-text="perm.role === 'editor' ? 'محرر' : (perm.role === 'commenter' ? 'معلق' : 'مشاهد')"></span>
+                                <button type="button" @click="removePermission(perm.user_id)" class="text-notion-muted hover:text-red-500 p-1">✕</button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 @php
     $databasesData = $page->databases->map(function ($db) {
+        $views = $db->views->map(fn ($v) => [
+            'id' => $v->id,
+            'name' => $v->name,
+            'type' => $v->type,
+            'filter_config' => $v->filter_config,
+            'sort_config' => $v->sort_config,
+        ])->values();
+
         return [
             'id'         => $db->id,
             'name'       => $db->name,
@@ -894,7 +1278,15 @@
                 'id'     => $r->id,
                 'values' => $r->values ?? (object) [],
             ])->values(),
-            'view'       => 'table',
+            'views'      => $views->count() > 0 ? $views : [
+                ['id' => null, 'name' => 'جدول', 'type' => 'table'],
+                ['id' => null, 'name' => 'لوحة', 'type' => 'board'],
+                ['id' => null, 'name' => 'قائمة', 'type' => 'list'],
+                ['id' => null, 'name' => 'معرض', 'type' => 'gallery'],
+            ],
+            'activeView' => $views->first()['type'] ?? 'table',
+            'searchQuery' => '',
+            'filterStatus' => '',
         ];
     })->values();
 @endphp
@@ -915,6 +1307,191 @@ function pageEditor() {
         draggingDbId: null,
         dragOverCol: null,
 
+        // التعليقات
+        commentDrawerOpen: false,
+        activeBlockId: null,
+        blockComments: [],
+        commentsLoading: false,
+        newCommentText: '',
+        replyText: {},
+
+        // الصلاحيات والمشاركة
+        shareModalOpen: false,
+        permissions: [],
+        newPermEmail: '',
+        newPermRole: 'editor',
+
+        // تصفية السجلات في قواعد البيانات
+        getFilteredRows(db) {
+            let rows = db.rows || [];
+            if (db.searchQuery && db.searchQuery.trim()) {
+                const q = db.searchQuery.toLowerCase();
+                rows = rows.filter(r => {
+                    return Object.values(r.values || {}).some(v => String(v).toLowerCase().includes(q));
+                });
+            }
+            if (db.filterStatus) {
+                const statusProp = this.getStatusPropName(db);
+                rows = rows.filter(r => (r.values[statusProp] || '') === db.filterStatus);
+            }
+            return rows;
+        },
+
+        async addView(db, name, type) {
+            const res = await fetch(`/databases/${db.id}/views`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ name, type })
+            });
+            const data = await res.json();
+            if (data.view) {
+                db.views.push({
+                    id: data.view.id,
+                    name: data.view.name,
+                    type: data.view.type,
+                    filter_config: data.view.filter_config,
+                    sort_config: data.view.sort_config
+                });
+                db.activeView = data.view.type;
+            }
+        },
+
+        async openComments(blockId) {
+            this.activeBlockId = blockId;
+            this.commentDrawerOpen = true;
+            this.commentsLoading = true;
+            this.newCommentText = '';
+            try {
+                const res = await fetch(`/blocks/${blockId}/comments`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                this.blockComments = data.comments || [];
+            } catch (e) {
+                this.blockComments = [];
+            } finally {
+                this.commentsLoading = false;
+            }
+        },
+
+        async addComment() {
+            if (!this.newCommentText.trim() || !this.activeBlockId) return;
+            const res = await fetch(`/blocks/${this.activeBlockId}/comments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ content: this.newCommentText })
+            });
+            const data = await res.json();
+            if (data.comment) {
+                data.comment.replies = [];
+                this.blockComments.unshift(data.comment);
+                this.newCommentText = '';
+            }
+        },
+
+        async addReply(comment) {
+            const text = this.replyText[comment.id];
+            if (!text || !text.trim() || !this.activeBlockId) return;
+            const res = await fetch(`/blocks/${this.activeBlockId}/comments`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ content: text, parent_id: comment.id })
+            });
+            const data = await res.json();
+            if (data.comment) {
+                if (!comment.replies) comment.replies = [];
+                comment.replies.push(data.comment);
+                this.replyText[comment.id] = '';
+            }
+        },
+
+        async toggleResolveComment(comment) {
+            const res = await fetch(`/comments/${comment.id}/resolve`, {
+                method: 'PATCH',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                    'Accept': 'application/json'
+                }
+            });
+            const data = await res.json();
+            if (data.comment) {
+                comment.is_resolved = data.comment.is_resolved;
+            }
+        },
+
+        async deleteComment(comment) {
+            if (!confirm('حذف هذا التعليق؟')) return;
+            await fetch(`/comments/${comment.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                    'Accept': 'application/json'
+                }
+            });
+            this.blockComments = this.blockComments.filter(c => c.id !== comment.id);
+        },
+
+        async openShareModal() {
+            this.shareModalOpen = true;
+            try {
+                const res = await fetch(`/pages/${this.pageId}/permissions`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await res.json();
+                this.permissions = data.permissions || [];
+            } catch (e) {
+                this.permissions = [];
+            }
+        },
+
+        async addPermission() {
+            if (!this.newPermEmail.trim()) return;
+            const res = await fetch(`/pages/${this.pageId}/permissions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ email: this.newPermEmail, role: this.newPermRole })
+            });
+            const data = await res.json();
+            if (data.permission) {
+                const idx = this.permissions.findIndex(p => p.id === data.permission.id);
+                if (idx >= 0) {
+                    this.permissions[idx] = data.permission;
+                } else {
+                    this.permissions.push(data.permission);
+                }
+                this.newPermEmail = '';
+            } else if (data.message) {
+                alert(data.message);
+            }
+        },
+
+        async removePermission(userId) {
+            await fetch(`/pages/${this.pageId}/permissions/${userId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                    'Accept': 'application/json'
+                }
+            });
+            this.permissions = this.permissions.filter(p => p.user_id !== userId);
+        },
+
         async createDatabase() {
             const res = await fetch('{{ route('databases.store', $page) }}', {
                 method: 'POST',
@@ -932,7 +1509,15 @@ function pageEditor() {
                     name: data.database.name,
                     properties: data.database.properties || [],
                     rows: data.database.rows || [],
-                    view: 'table'
+                    views: [
+                        { id: null, name: 'جدول', type: 'table' },
+                        { id: null, name: 'لوحة', type: 'board' },
+                        { id: null, name: 'قائمة', type: 'list' },
+                        { id: null, name: 'معرض', type: 'gallery' }
+                    ],
+                    activeView: 'table',
+                    searchQuery: '',
+                    filterStatus: ''
                 });
             }
         },
@@ -1018,7 +1603,7 @@ function pageEditor() {
         getBoardRows(db, col) {
             const statusKey = this.getStatusPropName(db);
             const cols = this.getBoardColumns(db);
-            return db.rows.filter(r => {
+            return this.getFilteredRows(db).filter(r => {
                 const val = r.values[statusKey];
                 return val ? val === col : col === cols[0];
             });

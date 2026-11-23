@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -60,10 +61,8 @@ class PageController extends Controller
         $workspace = $page->workspace;
         $user = $request->user();
 
-        // التحقق من الصلاحيات
-        if ($workspace->user_id !== $user->id && ! $workspace->members->contains($user->id)) {
-            abort(403, 'غير مخول بالوصول لهذه الصفحة.');
-        }
+        // التحقق من الصلاحيات عبر PagePolicy
+        Gate::authorize('view', $page);
 
         // تحميل شجرة صفحات مساحة العمل بالكامل للقائمة الجانبية
         $workspace->load([
@@ -77,16 +76,20 @@ class PageController extends Controller
             'tags',
         ]);
 
-        // تحميل البلوكات والعلاقات للصفحة
+        // تحميل البلوكات والعلاقات للصفحة مع التعليقات والعروض
         $page->load([
-            'blocks' => fn ($q) => $q->orderBy('position', 'asc'),
+            'blocks' => fn ($q) => $q->orderBy('position', 'asc')->with(['comments.user', 'comments.replies.user']),
             'children',
             'creator',
             'parent',
             'tags',
             'databases.rows',
+            'databases.views',
+            'permissions.user',
             'activities' => fn ($q) => $q->with('user')->latest()->limit(20),
         ]);
+
+        $userRole = $page->getUserRole($user);
 
         // Backlinks: الصفحات التي تشير لهذه الصفحة في محتوى بلوكاتها
         $backlinks = Block::whereHas('page', fn ($q) => $q->where('workspace_id', $workspace->id))
@@ -101,7 +104,7 @@ class PageController extends Controller
             return response()->json($page);
         }
 
-        return view('pages.show', compact('page', 'workspace', 'backlinks'));
+        return view('pages.show', compact('page', 'workspace', 'backlinks', 'userRole'));
     }
 
     /**

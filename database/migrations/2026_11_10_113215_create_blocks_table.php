@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('blocks', function (Blueprint $table) {
             $table->id();
             $table->foreignId('page_id')->constrained()->cascadeOnDelete();
-            $table->string('type'); 
+            $table->string('type');
             $table->json('content')->nullable();
             $table->integer('position')->default(0);
             $table->timestamps();
