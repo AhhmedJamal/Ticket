@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - dev
-      - main
+      - develop
   workflow_dispatch:
 
 concurrency:
@@ -46,15 +46,14 @@ jobs:
               "$(pwd)/" "$TARGET_DIR/"
           fi
 
-      - name: Ensure .env and permissions exist
+      - name: Ensure .env and storage directories exist
         run: |
           set -euo pipefail
           if [ ! -f .env ]; then
             cp .env.example .env
           fi
           mkdir -p storage/framework/{sessions,views,cache} storage/logs bootstrap/cache
-          chown -R www-data:www-data storage bootstrap/cache
-          chmod -R 775 storage bootstrap/cache
+          chmod -R 777 storage bootstrap/cache || true
 
       - name: Rebuild and start Docker services
         run: |
@@ -76,7 +75,13 @@ jobs:
             sleep 2
           done
 
-      - name: Run Laravel migrations, cache refresh, and health check
+      - name: Fix Laravel directory ownership inside container
+        run: |
+          set -euo pipefail
+          docker exec -u 0 notion_clone_app chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+          docker exec -u 0 notion_clone_app chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+      - name: Run Laravel migrations and cache refresh
         run: |
           set -euo pipefail
           docker exec notion_clone_app php artisan key:generate --force --no-interaction
@@ -87,8 +92,6 @@ jobs:
           docker exec notion_clone_app php artisan config:cache
           docker exec notion_clone_app php artisan route:cache
           docker exec notion_clone_app php artisan view:cache
-          docker exec notion_clone_app chown -R www-data:www-data storage bootstrap/cache
-          docker exec notion_clone_app chmod -R 775 storage bootstrap/cache
 
       - name: Reload Caddy and verify HTTPS endpoint
         run: |
