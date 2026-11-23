@@ -1,0 +1,110 @@
+name: deploy-dev
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev-ticket
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Dev Server (dev-ticket)
+    runs-on: [self-hosted, dev-ticket]
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: /home/ubuntu/gemy/Ticket
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Sync repository changes to /home/ubuntu/gemy/Ticket
+        run: |
+          set -euo pipefail
+          TARGET_DIR="/home/ubuntu/gemy/Ticket"
+          mkdir -p "$TARGET_DIR"
+
+          if [ "$(pwd)" != "$TARGET_DIR" ]; then
+            rsync -a --delete \
+              --exclude='.git/' \
+              --exclude='.env' \
+              --exclude='storage/' \
+              --exclude='bootstrap/cache/*.php' \
+              --exclude='node_modules/' \
+              --exclude='vendor/' \
+              --exclude='public/build/' \
+              "$(pwd)/" "$TARGET_DIR/"
+          fi
+
+      - name: Ensure .env and storage directories exist
+        run: |
+          set -euo pipefail
+          if [ ! -f .env ]; then
+            cp .env.example .env
+          fi
+          mkdir -p storage/framework/{sessions,views,cache} storage/logs bootstrap/cache
+          chmod -R 777 storage bootstrap/cache || true
+
+      - name: Rebuild and start Docker services
+        run: |
+          set -euo pipefail
+          docker compose build --pull app
+          docker compose up -d --remove-orphans
+
+      - name: Wait for MySQL container health
+        run: |
+          set -euo pipefail
+          RETRIES=30
+          until docker inspect --format='{{.State.Health.Status}}' notion_clone_mysql 2>/dev/null | grep -q "healthy"; do
+            RETRIES=$((RETRIES - 1))
+            if [ "$RETRIES" -le 0 ]; then
+              echo "Error: notion_clone_mysql did not become healthy in time."
+              docker logs --tail 50 notion_clone_mysql || true
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Fix Laravel directory ownership inside container
+        run: |
+          set -euo pipefail
+          docker exec -u 0 notion_clone_app chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+          docker exec -u 0 notion_clone_app chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+      - name: Run Laravel migrations and cache refresh
+        run: |
+          set -euo pipefail
+          docker exec notion_clone_app php artisan key:generate --force --no-interaction
+          docker exec notion_clone_app php artisan migrate --force --no-interaction
+          docker exec notion_clone_app php artisan config:clear
+          docker exec notion_clone_app php artisan route:clear
+          docker exec notion_clone_app php artisan view:clear
+          docker exec notion_clone_app php artisan config:cache
+          docker exec notion_clone_app php artisan route:cache
+          docker exec notion_clone_app php artisan view:cache
+
+      - name: Reload Caddy and verify HTTPS endpoint
+        run: |
+          set -euo pipefail
+          sudo caddy fmt --overwrite /etc/caddy/Caddyfile
+          sudo caddy validate --config /etc/caddy/Caddyfile
+          sudo caddy reload --config /etc/caddy/Caddyfile
+
+          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 https://tickettt.duckdns.org || true)
+          echo "Endpoint HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 500 ]; then
+            echo "Deployment verification failed with HTTP $HTTP_CODE"
+            sudo journalctl -u caddy -n 30 --no-pager || true
+            docker logs --tail 40 notion_clone_app || true
+            exit 1
+          fi
