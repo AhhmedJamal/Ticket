@@ -38,22 +38,66 @@ jobs:
             rsync -a --delete \
               --exclude='.git/' \
               --exclude='.env' \
+              --exclude='apps/backend/.env' \
+              --exclude='apps/backend/storage/' \
+              --exclude='apps/backend/bootstrap/cache/*.php' \
+              --exclude='apps/backend/vendor/' \
+              --exclude='apps/frontend/.env.local' \
+              --exclude='apps/frontend/.next/' \
+              --exclude='apps/frontend/node_modules/' \
               --exclude='storage/' \
-              --exclude='bootstrap/cache/*.php' \
-              --exclude='node_modules/' \
               --exclude='vendor/' \
+              --exclude='node_modules/' \
               --exclude='public/build/' \
+              --exclude='docker-compose*.yml' \
+              --exclude='docker-compose*.yaml' \
+              --exclude='Dockerfile*' \
+              --exclude='docker/' \
+              --exclude='Caddyfile' \
               "$(pwd)/" "$TARGET_DIR/"
           fi
 
       - name: Ensure .env and storage directories exist
         run: |
           set -euo pipefail
-          if [ ! -f .env ]; then
-            cp .env.example .env
+          TARGET_DIR="/home/ubuntu/gemy/Ticket"
+
+          # 1. Backend Environment Setup
+          if [ ! -f "$TARGET_DIR/apps/backend/.env" ]; then
+            if [ -f "$TARGET_DIR/.env" ]; then
+              echo "Copying root .env to apps/backend/.env"
+              cp "$TARGET_DIR/.env" "$TARGET_DIR/apps/backend/.env"
+            elif [ -f "$TARGET_DIR/apps/backend/.env.example" ]; then
+              cp "$TARGET_DIR/apps/backend/.env.example" "$TARGET_DIR/apps/backend/.env"
+            fi
           fi
-          mkdir -p storage/framework/{sessions,views,cache} storage/logs bootstrap/cache
-          chmod -R 777 storage bootstrap/cache || true
+
+          # Ensure root .env points to or links to backend .env for backwards compatibility
+          if [ ! -f "$TARGET_DIR/.env" ] && [ -f "$TARGET_DIR/apps/backend/.env" ]; then
+            ln -sfn apps/backend/.env "$TARGET_DIR/.env" || true
+          fi
+
+          # 2. Backend Storage & Bootstrap Cache Directories
+          mkdir -p "$TARGET_DIR/apps/backend/storage/framework/"{sessions,views,cache/data} \
+                   "$TARGET_DIR/apps/backend/storage/logs" \
+                   "$TARGET_DIR/apps/backend/storage/app/public" \
+                   "$TARGET_DIR/apps/backend/bootstrap/cache"
+          chmod -R 777 "$TARGET_DIR/apps/backend/storage" "$TARGET_DIR/apps/backend/bootstrap/cache" || true
+
+          # 3. Root Compatibility Symlinks (Ensures existing Docker container volume mounts work out of the box)
+          mkdir -p "$TARGET_DIR/storage/framework/"{sessions,views,cache} "$TARGET_DIR/storage/logs" "$TARGET_DIR/bootstrap/cache"
+          chmod -R 777 "$TARGET_DIR/storage" "$TARGET_DIR/bootstrap/cache" || true
+
+          for item in artisan public app config database routes vendor; do
+            if [ ! -e "$TARGET_DIR/$item" ] && [ -e "$TARGET_DIR/apps/backend/$item" ]; then
+              ln -sfn "apps/backend/$item" "$TARGET_DIR/$item" || true
+            fi
+          done
+
+          # 4. Frontend Environment Setup
+          if [ ! -f "$TARGET_DIR/apps/frontend/.env.local" ]; then
+            echo "NEXT_PUBLIC_API_URL=https://tickettt.duckdns.org/api/v1" > "$TARGET_DIR/apps/frontend/.env.local"
+          fi
 
       - name: Rebuild and start Docker services
         run: |
@@ -78,33 +122,82 @@ jobs:
       - name: Fix Laravel directory ownership inside container
         run: |
           set -euo pipefail
-          docker exec -u 0 notion_clone_app chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-          docker exec -u 0 notion_clone_app chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+
+          # Determine the Laravel root path inside notion_clone_app
+          CONTAINER_LARAVEL_DIR="/var/www/html"
+          if docker exec notion_clone_app test -f /var/www/html/apps/backend/artisan; then
+            CONTAINER_LARAVEL_DIR="/var/www/html/apps/backend"
+          elif docker exec notion_clone_app test -f /var/www/html/artisan; then
+            CONTAINER_LARAVEL_DIR="/var/www/html"
+          fi
+          echo "Laravel directory inside container: $CONTAINER_LARAVEL_DIR"
+
+          docker exec -u 0 notion_clone_app chown -R www-data:www-data "$CONTAINER_LARAVEL_DIR/storage" "$CONTAINER_LARAVEL_DIR/bootstrap/cache" || true
+          docker exec -u 0 notion_clone_app chmod -R 775 "$CONTAINER_LARAVEL_DIR/storage" "$CONTAINER_LARAVEL_DIR/bootstrap/cache" || true
 
       - name: Run Laravel migrations and cache refresh
         run: |
           set -euo pipefail
-          docker exec notion_clone_app php artisan key:generate --force --no-interaction
-          docker exec notion_clone_app php artisan migrate --force --no-interaction
-          docker exec notion_clone_app php artisan config:clear
-          docker exec notion_clone_app php artisan route:clear
-          docker exec notion_clone_app php artisan view:clear
-          docker exec notion_clone_app php artisan config:cache
-          docker exec notion_clone_app php artisan route:cache
-          docker exec notion_clone_app php artisan view:cache
+
+          CONTAINER_LARAVEL_DIR="/var/www/html"
+          if docker exec notion_clone_app test -f /var/www/html/apps/backend/artisan; then
+            CONTAINER_LARAVEL_DIR="/var/www/html/apps/backend"
+          fi
+
+          docker exec -w "$CONTAINER_LARAVEL_DIR" notion_clone_app php artisan key:generate --force --no-interaction || true
+          docker exec -w "$CONTAINER_LARAVEL_DIR" notion_clone_app php artisan migrate --force --no-interaction
+          docker exec -w "$CONTAINER_LARAVEL_DIR" notion_clone_app php artisan storage:link || true
+          docker exec -w "$CONTAINER_LARAVEL_DIR" notion_clone_app php artisan config:clear
+          docker exec -w "$CONTAINER_LARAVEL_DIR" notion_clone_app php artisan route:clear
+          docker exec -w "$CONTAINER_LARAVEL_DIR" notion_clone_app php artisan config:cache
+          docker exec -w "$CONTAINER_LARAVEL_DIR" notion_clone_app php artisan route:cache
+
+      - name: Build and deploy Next.js frontend
+        run: |
+          set -euo pipefail
+          TARGET_DIR="/home/ubuntu/gemy/Ticket"
+          FRONTEND_DIR="$TARGET_DIR/apps/frontend"
+
+          if [ -d "$FRONTEND_DIR" ] && command -v npm >/dev/null 2>&1; then
+            echo "Node and npm detected on host. Building Next.js application..."
+            cd "$FRONTEND_DIR"
+
+            # Install dependencies and build Next.js
+            npm install --production=false --prefer-offline || npm ci || true
+            npm run build
+
+            # Restart frontend process if managed via PM2 or systemd
+            if command -v pm2 >/dev/null 2>&1; then
+              if pm2 list | grep -q "ticket-frontend"; then
+                echo "Restarting ticket-frontend PM2 process..."
+                pm2 restart ticket-frontend
+              else
+                echo "Starting ticket-frontend PM2 process..."
+                pm2 start npm --name "ticket-frontend" -- start -- -p 3000
+                pm2 save || true
+              fi
+            elif command -v systemctl >/dev/null 2>&1 && sudo systemctl list-units --full -all | grep -q "ticket-frontend.service"; then
+              echo "Restarting ticket-frontend systemd service..."
+              sudo systemctl restart ticket-frontend
+            fi
+          else
+            echo "Frontend build skipped on host (Node.js/npm not installed or handled via container)."
+          fi
 
       - name: Reload Caddy and verify HTTPS endpoint
         run: |
           set -euo pipefail
-          sudo caddy fmt --overwrite /etc/caddy/Caddyfile
-          sudo caddy validate --config /etc/caddy/Caddyfile
-          sudo caddy reload --config /etc/caddy/Caddyfile
+          if [ -f /etc/caddy/Caddyfile ]; then
+            sudo caddy fmt --overwrite /etc/caddy/Caddyfile
+            sudo caddy validate --config /etc/caddy/Caddyfile
+            sudo caddy reload --config /etc/caddy/Caddyfile
+          fi
 
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 https://tickettt.duckdns.org || true)
           echo "Endpoint HTTP status: $HTTP_CODE"
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 500 ]; then
             echo "Deployment verification failed with HTTP $HTTP_CODE"
-            sudo journalctl -u caddy -n 30 --no-pager || true
-            docker logs --tail 40 notion_clone_app || true
+            sudo journalctl -u caddy -n 30 --no-pager 2>/dev/null || true
+            docker logs --tail 40 notion_clone_app 2>/dev/null || true
             exit 1
           fi
